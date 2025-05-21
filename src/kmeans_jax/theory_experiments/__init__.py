@@ -2,6 +2,7 @@ from ._main_theorem import (
     run_main_theorem_experiments as run_main_theorem_experiments,
 )
 from ._plot import (
+    plot_rho_paper_figure as plot_rho_paper_figure,
     plot_theorem_diff as plot_theorem_diff,
     plot_theorem_typical_partition as plot_theorem_typical_partition,
     plot_theorem_warmup as plot_theorem_warmup,

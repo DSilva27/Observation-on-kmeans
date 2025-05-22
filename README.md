@@ -17,11 +17,11 @@ This package is built on JAX. In addition, we use the NMI clustering metric and 
 
 ## Reproducing results
 
-Notebooks with the parameters used to obtain the experiments presented in the paper, as well as the functions necessary to run them,  are available in the directory `paper_experiments/`. The results used to create the Figures presented in the paper are available in the directory `results/` in the form of NumPy `.npz` files.
+Notebooks with the parameters used to obtain the experiments presented in the paper, as well as the functions necessary to run them,  are available in the directory `paper_experiments/`. In addtion, the notebooks include the functions used to generate the Figures presented in the paper. Pre-computed result files are provided in the `results/` directory, in the form of NumPy `.npz` files.
 
 ## License
 
-This code is Licensed under the License GPL-3.0. See the file `LICENSE` for more information.
+This code is Licensed under the License GPL-3.0. See the `LICENSE` file for more information.
 
 ## Acknowledgements
 

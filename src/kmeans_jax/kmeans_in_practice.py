@@ -98,10 +98,13 @@ def run_single_experiment(
 
     #print(losses.shape)
     # PCA + k-means
-    (_, labels_pca), losses_pca = run_kmeans(
+    (_, labels_pca), _ = run_kmeans(
         data_pca, init_centroids_pca, max_iters=max_iters
     )
     nmi_kmeans_pca = sk_metrics.normalized_mutual_info_score(true_labels, labels_pca)
+    loss_pca = compute_loss(
+        data, update_centroids(data, labels_pca, 2), labels_pca
+    )
 
     # Split PCA
     labels_pca_split = jnp.where(data_pca[:, 0] > 0.0, 0, 1).astype(int)
@@ -111,7 +114,7 @@ def run_single_experiment(
     )
     results = {
         "nmi": (nmi_kmeans, nmi_kmeans_pca, nmi_split_pca),
-        "loss": (losses[-1], losses_pca[-1], loss_pca_split, true_loss),
+        "loss": (losses[-1], loss_pca, loss_pca_split, true_loss),
     }
     return results
 

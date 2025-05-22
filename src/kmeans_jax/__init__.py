@@ -1,4 +1,3 @@
-
 from . import (
     kmeans as kmeans,
     kmeans_in_practice as kmeans_in_practice,

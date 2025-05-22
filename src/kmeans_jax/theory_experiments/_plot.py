@@ -9,10 +9,6 @@ from ._typical_partition_theorem import check_partition_is_valid
 from ._utils import compute_conf_interval, compute_conf_interval_with_mask
 
 
-mpl.rcParams["pdf.fonttype"] = 42  # TrueType fonts
-mpl.rcParams["ps.fonttype"] = 42
-
-
 def plot_theorem_warmup(results, fig_fname=None):
     dimension_vals = results["dimension_vals"]
     empirical_probs = results["empirical_probs"]
@@ -24,6 +20,9 @@ def plot_theorem_warmup(results, fig_fname=None):
     avg_probs = empirical_probs.mean(axis=-1)
     sns.set_theme(context="talk")
     fig, ax = plt.subplots(2, 4, figsize=(15, 10), sharex=False, sharey=True)
+
+    mpl.rcParams["pdf.fonttype"] = 42  # TrueType fonts
+    mpl.rcParams["ps.fonttype"] = 42
 
     for i in range(len(noise_std_vals)):
         if i == len(noise_std_vals) - 1:
@@ -97,6 +96,8 @@ def plot_theorem_diff(results, fig_fname=None):
     avg_probs_worst = empirical_probs_worst.mean(axis=-1)
     avg_probs_random = empirical_probs_random.mean(axis=-1)
     sns.set_theme(context="talk")
+    mpl.rcParams["pdf.fonttype"] = 42  # TrueType fonts
+    mpl.rcParams["ps.fonttype"] = 42
 
     fig, ax = plt.subplots(
         2, 4, figsize=(15, 10), sharex=False, sharey=True
@@ -193,6 +194,8 @@ def plot_theorem_typical_partition(results, fig_fname=None):
     center = empirical_probs.mean(axis=-1, where=jnp.where(mask, True, False))
 
     sns.set_theme(context="talk")
+    mpl.rcParams["pdf.fonttype"] = 42  # TrueType fonts
+    mpl.rcParams["ps.fonttype"] = 42
 
     fig, ax = plt.subplots(2, 4, figsize=(15, 10), sharex=False, sharey=True)
 
@@ -265,6 +268,8 @@ def plot_union_bound_corollary(results, fig_fname=None):
     avg_probs_cor = empirical_probs.mean(axis=-1)
 
     sns.set_theme(context="talk")
+    mpl.rcParams["pdf.fonttype"] = 42  # TrueType fonts
+    mpl.rcParams["ps.fonttype"] = 42
 
     fig, ax = plt.subplots(2, 4, figsize=(15, 10), sharex=False, sharey=True)
 
@@ -547,6 +552,9 @@ def _plot_rho(
 
 
 def plot_rho_paper_figure(fig_fname=None):
+    mpl.rcParams["pdf.fonttype"] = 42  # TrueType fonts
+    mpl.rcParams["ps.fonttype"] = 42
+
     fig, ax = plt.subplots(
         2, 2, figsize=(10, 8), layout="compressed", sharex=True, sharey=True
     )

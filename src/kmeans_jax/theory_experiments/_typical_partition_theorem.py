@@ -39,6 +39,7 @@ def check_partition_is_valid(S1, S2, n, q):
 
     return jnp.logical_and(b1, b2)
 
+
 def compute_base_noise_std(n, q):
     num = jnp.sqrt(n) * q + n - 2
     den = jnp.sqrt(2 * (jnp.sqrt(n) * q + n))
@@ -128,7 +129,7 @@ def run_theorem_typical_part_experiments(
     shape_parameter_space = (len(dimension_vals), len(noise_std_vals))
     empirical_probs = np.ones((*shape_parameter_space, n_experiments)) * -1.0
     cluster_sizes = np.ones((*shape_parameter_space, n_experiments, 2), dtype=int) * -1
-    upper_bound = compute_upper_bound(dimension_vals, noise_std_vals ** 2)
+    upper_bound = compute_upper_bound(dimension_vals, noise_std_vals**2)
 
     results = {}
 

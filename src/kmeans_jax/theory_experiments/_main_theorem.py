@@ -84,8 +84,7 @@ def _run_experiment_main_theorem_random(
     )
     x_T = (
         true_mu_T[None, ...]
-        + jax.random.normal(key_data2, shape=(size_cluster_T, dimension))
-        * noise_variance
+        + jax.random.normal(key_data2, shape=(size_cluster_T, dimension)) * noise_variance
     )
 
     data = jnp.concatenate([x_C, x_T])
@@ -132,9 +131,9 @@ def run_main_theorem_experiments(
 
     key = jax.random.key(seed)
 
-    X, Y = np.meshgrid(dimension_vals, noise_std_vals ** 2, indexing="ij")
+    X, Y = np.meshgrid(dimension_vals, noise_std_vals**2, indexing="ij")
     upper_bounds = _compute_upper_bound_main_theorem(
-        X, prior_std ** 2, Y, size_cluster_C, size_cluster_T
+        X, prior_std**2, Y, size_cluster_C, size_cluster_T
     )
 
     empirical_probs_worst = np.ones((*upper_bounds.shape, n_experiments)) * -1

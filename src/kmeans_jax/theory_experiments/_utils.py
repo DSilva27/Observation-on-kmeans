@@ -3,7 +3,6 @@ from scipy import stats
 
 
 def compute_conf_interval(probabilities, alpha=0.05):
-
     n_s = probabilities.sum(axis=-1)
     n = probabilities.shape[-1]
 
@@ -43,6 +42,8 @@ def compute_conf_interval_with_mask(probabilities, mask, alpha=0.05):
 
     for i in range(probabilities.shape[0]):
         for j in range(probabilities.shape[1]):
-            center[i, j], width[i, j] = compute_single_case(probabilities[i, j], mask[i, j])
+            center[i, j], width[i, j] = compute_single_case(
+                probabilities[i, j], mask[i, j]
+            )
 
     return center - width, center + width

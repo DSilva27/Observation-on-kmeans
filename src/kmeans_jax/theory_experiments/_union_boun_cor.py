@@ -102,6 +102,3 @@ def run_union_bound_cor_experiments(
 
             jnp.savez(path_to_output, **results)
     return results
-
-
-

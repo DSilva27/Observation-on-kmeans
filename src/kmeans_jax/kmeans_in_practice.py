@@ -1,14 +1,17 @@
 import logging
 import os
+from typing import Dict
+from typing_extensions import Literal
 
 import jax
 import jax.numpy as jnp
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 import numpy as np
+from jaxtyping import Array, Bool, Float, Int, PRNGKeyArray
 from sklearn import metrics as sk_metrics
 from sklearn.decomposition import PCA
 from tqdm import tqdm
-import matplotlib.pyplot as plt
-import matplotlib as mpl
 
 from .kmeans import (
     assign_clusters,
@@ -23,7 +26,8 @@ from .kmeans import (
 mpl.rcParams["pdf.fonttype"] = 42  # TrueType fonts
 mpl.rcParams["ps.fonttype"] = 42
 
-def _mkbasedir(path):
+
+def _mkbasedir(path: str) -> None:
     if not os.path.exists(path):
         try:
             os.makedirs(path)
@@ -33,16 +37,16 @@ def _mkbasedir(path):
 
 
 def run_single_experiment(
-    key,
-    noise_variance,
-    size_cluster1,
-    size_cluster2,
-    dimension,
-    num_pca_components,
-    init_method,
-    var_prior,
-    max_iters,
-):
+    key: PRNGKeyArray,
+    noise_variance: Float,
+    size_cluster1: Int,
+    size_cluster2: Int,
+    dimension: Int,
+    num_pca_components: Int,
+    init_method: Literal["random_centers", "kmeans++", "random_partition"],
+    var_prior: Float,
+    max_iters: Int,
+) -> Dict[str, Float]:
     key1, key2, key_data1, key_data2, key_init = jax.random.split(key, 5)
 
     # Generate data
@@ -69,7 +73,7 @@ def run_single_experiment(
         n_components=num_pca_components,
     )
     pca.fit(np.array(data))
-    data_pca = pca.transform(np.array(data))
+    data_pca = jnp.array(pca.transform(np.array(data)))
 
     ### Initialization
 
@@ -100,15 +104,11 @@ def run_single_experiment(
     (_, labels), losses = run_kmeans(data, init_centroids, max_iters=max_iters)
     nmi_kmeans = sk_metrics.normalized_mutual_info_score(true_labels, labels)
 
-    #print(losses.shape)
+    # print(losses.shape)
     # PCA + k-means
-    (_, labels_pca), _ = run_kmeans(
-        data_pca, init_centroids_pca, max_iters=max_iters
-    )
+    (_, labels_pca), _ = run_kmeans(data_pca, init_centroids_pca, max_iters=max_iters)
     nmi_kmeans_pca = sk_metrics.normalized_mutual_info_score(true_labels, labels_pca)
-    loss_pca = compute_loss(
-        data, update_centroids(data, labels_pca, 2), labels_pca
-    )
+    loss_pca = compute_loss(data, update_centroids(data, labels_pca, 2), labels_pca)
 
     # Split PCA
     labels_pca_split = jnp.where(data_pca[:, 0] > 0.0, 0, 1).astype(int)
@@ -124,20 +124,40 @@ def run_single_experiment(
 
 
 def run_kmeans_in_practice_experiments(
-    dimension_vals,
-    noise_variance_vals,
-    prior_variance,
-    size_cluster1,
-    size_cluster2,
-    n_experiments,
-    num_pca_components,
-    init_method,
-    path_to_output,
+    dimension_vals: Int[Array, " n_dims"],
+    noise_variance_vals: Float[Array, " n_noise_variances"],
+    prior_variance: Float,
+    size_cluster1: Int,
+    size_cluster2: Int,
+    n_experiments: Int,
+    num_pca_components: Int,
+    init_method: Literal["random_centers", "kmeans++", "random_partition"],
+    path_to_output: str,
     *,
-    max_iters=1000,
-    seed=0,
-    overwrite=False,
-):
+    max_iters: Int = 1000,
+    seed: Int = 0,
+    overwrite: Bool = False,
+) -> Dict[str, Float[Array, "n_dims n_noise_variances n_experiments"]]:
+    """
+    Run k-means in practice experiments.
+    **Arguments:**
+        - dimension_vals: Array of dimensions to test.
+        - noise_variance_vals: Array of noise variances to test.
+        - prior_variance: Prior variance for the data generation.
+        - size_cluster1: Size of the first cluster.
+        - size_cluster2: Size of the second cluster.
+        - n_experiments: Number of experiments to run for each setting.
+        - num_pca_components: Number of PCA components to use.
+        - init_method: Initialization method for k-means.
+            One of 'random_centers', 'kmeans++', or 'random_partition'.
+        - path_to_output: Path to save the results.
+        - max_iters: Maximum number of iterations for k-means.
+        - seed: Random seed for reproducibility.
+        - overwrite: Whether to overwrite existing output files.
+    **Returns:**
+        - results: Dictionary containing the results of the experiments.
+        The results are the NMI vs the true labels, and loss values for each experiment.
+    """
     assert jnp.all(dimension_vals > 0)
     assert jnp.all(noise_variance_vals > 0)
     assert jnp.all(prior_variance > 0)
@@ -291,17 +311,15 @@ def plot_kmeans_in_practice_nmi_results(results, fig_fname=None, fig_suptitle=No
 
     return fig, ax
 
-def plot_kmeans_in_practice_loss_results(results, fig_fname=None, fig_suptitle=None):
 
+def plot_kmeans_in_practice_loss_results(results, fig_fname=None, fig_suptitle=None):
     def _compute_loss_metric(loss1, loss2):
         return jnp.where(
             jnp.isclose(loss1, loss2), 0, jnp.where(loss1 - loss2 < 0, 1, -1)
         ).mean(-1)
 
     def _plot_loss(loss_matrix, ax, method):
-        im = ax.imshow(
-            loss_matrix.T, origin="lower", vmin=-1, vmax=1, cmap="bwr_r"
-        )
+        im = ax.imshow(loss_matrix.T, origin="lower", vmin=-1, vmax=1, cmap="bwr_r")
         ax.set_xticks(tick_indices, tick_labels, fontsize=fs)
 
         ax.set_yticks(

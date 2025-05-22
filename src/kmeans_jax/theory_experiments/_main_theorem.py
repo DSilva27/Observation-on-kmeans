@@ -80,10 +80,16 @@ def _run_experiment_main_theorem_worst(
 
     mu_C = jnp.mean(x_C, axis=0)
     mu_T = jnp.mean(x_T, axis=0)
-    if jnp.sum((x - mu_T) ** 2) - jnp.sum((x - mu_C) ** 2) < 0.0:
-        return 1
-    else:
-        return 0
+
+    point_swaps =np.sum((x - mu_T) ** 2) - jnp.sum((x - mu_C) ** 2)
+
+    output = jax.lax.cond(
+        point_swaps < 0.0,
+        lambda _: 1,
+        lambda _: 0,
+        operand=None,
+    )
+    return output
 
 
 def _run_experiment_main_theorem_random(
@@ -121,13 +127,16 @@ def _run_experiment_main_theorem_random(
     point_swaps = (
         jnp.sum((x - centroids[x_not_assign]) ** 2)
         - jnp.sum((x - centroids[x_assign]) ** 2)
-        < 0.0
     )
 
-    if point_swaps:
-        return 1
-    else:
-        return 0
+    output = jax.lax.cond(
+        point_swaps < 0.0,
+        lambda _: 1,
+        lambda _: 0,
+        operand=None,
+    )
+
+    return output
 
 
 def run_main_theorem_experiments(
@@ -217,7 +226,7 @@ def run_main_theorem_experiments(
                 "upper_bound": upper_bounds,
                 "empirical_probs_worst": empirical_probs_worst,
                 "empirical_probs_random": empirical_probs_random,
-                "dimensions_vals": dimension_vals,
+                "dimension_vals": dimension_vals,
                 "noise_std_vals": noise_std_vals,
                 "size_cluster_C": size_cluster_C,
                 "size_cluster_T": size_cluster_T,

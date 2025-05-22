@@ -99,10 +99,12 @@ def _run_experiment_theorem_typical_part(
     size_cluster_point = jnp.sum(assignments == assignments[idx_data_point])  # S2
     size_other_cluster = n_data_points - size_cluster_point  # S1
 
-    if diff_distance < 0:
-        point_swaps = 1
-    else:
-        point_swaps = 0
+    point_swaps = jax.lax.cond(
+        diff_distance < 0,
+        lambda _: 1,
+        lambda _: 0,
+        operand=None,
+    )
 
     return point_swaps, size_other_cluster, size_cluster_point
 

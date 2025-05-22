@@ -30,10 +30,16 @@ def _run_thm_warump_experiment(
     mu2 = jax.random.normal(key2, shape=(dimension,)) * prior_std
     noise = jax.random.normal(keyn, shape=(dimension,)) * noise_std
     x = mu1 + noise
-    if jnp.sum((x - mu2) ** 2) - jnp.sum((x - mu1) ** 2) <= m:
-        return 1
-    else:
-        return 0
+
+    point_assign_to_wrong = jnp.sum((x - mu2) ** 2) - jnp.sum((x - mu1) ** 2)
+
+    output = jax.lax.cond(
+        point_assign_to_wrong > 0,
+        lambda _: 1,
+        lambda _: 0,
+        operand=None,
+    )
+    return output
 
 
 def run_experiments_theorem_warmup(

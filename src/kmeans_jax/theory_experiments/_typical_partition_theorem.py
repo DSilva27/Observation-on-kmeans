@@ -1,12 +1,11 @@
 import os
 from functools import partial
-
 from typing import Dict
-from jaxtyping import Array, Bool, Float, Int, PRNGKeyArray
 
 import jax
 import jax.numpy as jnp
 import numpy as np
+from jaxtyping import Array, Bool, Float, Int, PRNGKeyArray
 from tqdm import tqdm
 
 from ..kmeans import update_centroids
@@ -118,7 +117,7 @@ def run_theorem_typical_part_experiments(
     *,
     overwrite: Bool = False,
     seed: Int = 0,
-    batch_size: Int=1000,
+    batch_size: Int = 1000,
 ) -> Dict[str, Array]:
     """
     Run the experiments for Theorem 2.8.

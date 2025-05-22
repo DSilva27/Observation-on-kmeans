@@ -1,11 +1,10 @@
 import os
+from typing import Dict
 
 import jax
 import numpy as np
-from tqdm import tqdm
-
-from typing import Dict
 from jaxtyping import Array, Bool, Float, Int, PRNGKeyArray
+from tqdm import tqdm
 
 
 jax.config.update("jax_enable_x64", True)

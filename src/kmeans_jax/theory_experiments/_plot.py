@@ -1,11 +1,12 @@
+from typing import Dict, Optional
+
 import jax.numpy as jnp
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-
-from typing import Dict, Optional
 from jaxtyping import Array
+
 from ._main_theorem import _compute_rho
 from ._typical_partition_theorem import _check_partition_is_valid
 from ._utils import compute_conf_interval, compute_conf_interval_with_mask

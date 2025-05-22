@@ -1,8 +1,6 @@
 import numpy as np
+from jaxtyping import Array, Float, Int
 from scipy import stats
-
-from typing import Dict
-from jaxtyping import Array, Bool, Float, Int, PRNGKeyArray
 
 
 def compute_conf_interval(trials: Int[Array, "... n_trials"], alpha: Float = 0.05):

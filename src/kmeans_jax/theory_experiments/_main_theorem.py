@@ -160,7 +160,7 @@ def run_main_theorem_experiments(
     **Returns:**
         results: A dictionary containing the results of the experiments
                 and the parameters used.
-    
+
     The results are also saved in a .npz file in the specified path.
     """
     if os.path.exists(path_to_output) and not overwrite:

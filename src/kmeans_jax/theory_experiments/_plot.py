@@ -4,12 +4,24 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
+from typing import Dict, Optional
+from jaxtyping import Array
 from ._main_theorem import _compute_rho
-from ._typical_partition_theorem import check_partition_is_valid
+from ._typical_partition_theorem import _check_partition_is_valid
 from ._utils import compute_conf_interval, compute_conf_interval_with_mask
 
 
-def plot_theorem_warmup(results, fig_fname=None):
+def plot_theorem_warmup(results: Dict[str, Array], fig_fname: Optional[str] = None):
+    """
+    Plot the results of Theorem E.1's experiments. This function assumes that
+    the results are obtained from the `run_experiments_theorem_warmup` function.
+
+    **Arguments:**
+        results: The results of the experiments.
+        fig_fname: The filename to save the figure. If None, the figure will not be saved.
+    **Returns:**
+        None
+    """
     dimension_vals = results["dimension_vals"]
     empirical_probs = results["empirical_probs"]
     upper_bound = results["upper_bound"]
@@ -81,7 +93,17 @@ def plot_theorem_warmup(results, fig_fname=None):
     return
 
 
-def plot_theorem_diff(results, fig_fname=None):
+def plot_theorem_diff(results: Dict[str, Array], fig_fname: Optional[str] = None):
+    """
+    Plot the results of Theorem 2.6's experiments. This function assumes that
+    the results are obtained from the `run_main_theorem_experiments` function.
+
+    **Arguments:**
+        results: The results of the experiments.
+        fig_fname: The filename to save the figure. If None, the figure will not be saved.
+    **Returns:**
+        None
+    """
     empirical_probs_worst = results["empirical_probs_worst"]
     empirical_probs_random = results["empirical_probs_random"]
 
@@ -173,7 +195,19 @@ def plot_theorem_diff(results, fig_fname=None):
     return
 
 
-def plot_theorem_typical_partition(results, fig_fname=None):
+def plot_theorem_typical_partition(
+    results: Dict[str, Array], fig_fname: Optional[str] = None
+):
+    """
+    Plot the results of Theorem's 2.8 experiments. This function assumes that
+    the results are obtained from the `run_theorem_typical_part_experiments` function.
+
+    **Arguments:**
+        results: The results of the experiments.
+        fig_fname: The filename to save the figure. If None, the figure will not be saved.
+    **Returns:**
+        None
+    """
     # Results from experiments
     empirical_probs = results["empirical_probs"]
     upper_bound_theorem = results["upper_bound"]
@@ -186,7 +220,7 @@ def plot_theorem_typical_partition(results, fig_fname=None):
     beta_vals = results["beta_vals"]
     n_experiments = results["n_experiments"]
 
-    mask = check_partition_is_valid(
+    mask = _check_partition_is_valid(
         cluster_sizes[..., 0], cluster_sizes[..., 1], n_data_points, q_value
     )
 
@@ -254,7 +288,19 @@ def plot_theorem_typical_partition(results, fig_fname=None):
     return
 
 
-def plot_union_bound_corollary(results, fig_fname=None):
+def plot_union_bound_corollary(
+    results: Dict[str, Array], fig_fname: Optional[str] = None
+):
+    """
+    Plot the results of Corollary's E.4 experiments. This function assumes that
+    the results are obtained from the `run_union_bound_cor_experiments` function.
+
+    **Arguments:**
+        results: The results of the experiments.
+        fig_fname: The filename to save the figure. If None, the figure will not be saved.
+    **Returns:**
+        None
+    """
     # Results from experiments
     empirical_probs = 1.0 - (results["empirical_probs"] == 0.0)
     upper_bound = results["upper_bound"]
@@ -499,7 +545,7 @@ def _plot_rho(
     ax.plot(noise_variance, noise_variance, "r--")  # s = sigma^2
 
     # valid region
-    ax.plot(s, noise_var_lb, "b--")
+    ax.plot(s, noise_var_lb, ls="--", color="blue")
 
     # edge of the region
     ax.plot(s, np.zeros(100), ls="--", color="blue")
@@ -527,7 +573,7 @@ def _plot_rho(
     cbar = plt.colorbar(contour)
     cbar.set_ticks(levels1[::2].tolist())
     cbar.set_ticklabels(levels1[::2].tolist())
-    cbar.set_label(r"$\rho$ (Theorem 2.6)", fontsize=fs)
+    cbar.set_label(r"$\rho$", fontsize=fs)
 
     ax.contour(
         grid["s_values"],
@@ -552,6 +598,8 @@ def _plot_rho(
 
 
 def plot_rho_paper_figure(fig_fname=None):
+    plt.rcdefaults()
+
     mpl.rcParams["pdf.fonttype"] = 42  # TrueType fonts
     mpl.rcParams["ps.fonttype"] = 42
 

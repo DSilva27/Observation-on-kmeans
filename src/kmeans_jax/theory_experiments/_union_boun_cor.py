@@ -4,6 +4,9 @@ import jax
 import numpy as np
 from tqdm import tqdm
 
+from typing import Dict
+from jaxtyping import Array, Bool, Float, Int, PRNGKeyArray
+
 
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
@@ -16,8 +19,12 @@ from ._main_theorem import _compute_upper_bound_main_theorem
 
 
 def _run_experiment_union_bound_cor(
-    key, cluster_size, dimension, prior_variance, noise_variance
-):
+    key: PRNGKeyArray,
+    cluster_size: Int,
+    dimension: Int,
+    prior_variance: Float,
+    noise_variance: Float,
+) -> Int:
     key1, key2, key_data1, key_data2, key_init = jax.random.split(key, 5)
     true_mu_C = jax.random.normal(key1, shape=(dimension,)) * jnp.sqrt(prior_variance)
     true_mu_T = jax.random.normal(key2, shape=(dimension,)) * jnp.sqrt(prior_variance)
@@ -45,17 +52,33 @@ def _run_experiment_union_bound_cor(
 
 
 def run_union_bound_cor_experiments(
-    dimension_vals,
-    noise_std_vals,
-    prior_std,
-    cluster_size,
-    n_experiments,
-    path_to_output,
+    dimension_vals: Int[Array, " n_dim_vals"],
+    noise_std_vals: Float[Array, " n_noise_std_vals"],
+    prior_std: Float,
+    cluster_size: Int,
+    n_experiments: Int,
+    path_to_output: str,
     *,
-    overwrite=False,
-    seed=0,
-    batch_size=1000,
-):
+    overwrite: Bool = False,
+    seed: Int = 0,
+    batch_size: Int = 1000,
+) -> Dict[str, Array]:
+    """
+    Run the experiments for the union bound corollary.
+
+    **Arguments:**
+        dimension_vals: The dimensions to test.
+        noise_std_vals: The noise standard deviations to test.
+        prior_std: The prior standard deviation.
+        cluster_size: The size of the clusters.
+        n_experiments: The number of experiments to run.
+        path_to_output: The path to save the results.
+        overwrite: Whether to overwrite the output file if it exists.
+        seed: The random seed to use.
+        batch_size: The batch size to use for JAX.
+    **Returns:**
+        results: A dictionary containing the results of the experiments.
+    """
     if os.path.exists(path_to_output) and not overwrite:
         raise ValueError(
             f"Ouput file {path_to_output} exists, but overwrite was set to False"

@@ -1,6 +1,9 @@
 import os
 from functools import partial
 
+from typing import Dict
+from jaxtyping import Array, Bool, Float, Int, PRNGKeyArray
+
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -9,47 +12,62 @@ from tqdm import tqdm
 from ..kmeans import update_centroids
 
 
-def compute_rho(n, q, s2):
+def _compute_rho(n_data_points: Int, q_value: Float, noise_variance: Float) -> Float:
     num = (
-        s2
-        * (jnp.sqrt(n) * q + n - 2)
-        * (n + jnp.sqrt(n) * q)
-        * (jnp.sqrt(n) * q + n + 2)
-        * (jnp.sqrt(n) * (s2 + 2) * (jnp.sqrt(n) + q) - 4)
+        noise_variance
+        * (jnp.sqrt(n_data_points) * q_value + n_data_points - 2)
+        * (n_data_points + jnp.sqrt(n_data_points) * q_value)
+        * (jnp.sqrt(n_data_points) * q_value + n_data_points + 2)
+        * (
+            jnp.sqrt(n_data_points)
+            * (noise_variance + 2)
+            * (jnp.sqrt(n_data_points) + q_value)
+            - 4
+        )
     )
-    den = n * s2 * (jnp.sqrt(n) + q) ** 2 + (jnp.sqrt(n) * q + n - 2) ** 2
+    den = (
+        n_data_points * noise_variance * (jnp.sqrt(n_data_points) + q_value) ** 2
+        + (jnp.sqrt(n_data_points) * q_value + n_data_points - 2) ** 2
+    )
     return num / den**2
 
 
 @partial(jax.vmap, in_axes=(0, None))
 @partial(jax.vmap, in_axes=(None, 0))
-def compute_upper_bound(d, s2):
-    return compute_rho(40, 2.8460497, s2) ** (d / 4)
+def _compute_upper_bound(dimension: Int, noise_variance: Float) -> Float:
+    return _compute_rho(40, 2.8460497, noise_variance) ** (dimension / 4)
 
 
 @partial(jax.vmap, in_axes=(0, 0, None, None))  # d
 @partial(jax.vmap, in_axes=(0, 0, None, None))  # sigma2
 @partial(jax.vmap, in_axes=(0, 0, None, None))  # experiments
-def check_partition_is_valid(S1, S2, n, q):
-    lower_bound = 0.5 * n - q * jnp.sqrt(0.25 * n)
-    upper_bound = 0.5 * n + q * jnp.sqrt(0.25 * n)
+def _check_partition_is_valid(
+    size_cluster1: Int, size_cluster2: Int, n_data_points: Int, q_value: Float
+) -> Bool:
+    lower_bound = 0.5 * n_data_points - q_value * jnp.sqrt(0.25 * n_data_points)
+    upper_bound = 0.5 * n_data_points + q_value * jnp.sqrt(0.25 * n_data_points)
 
-    b1 = jnp.logical_and(upper_bound > S1, S1 > lower_bound)
-    b2 = jnp.logical_and(upper_bound > S2, S2 > lower_bound)
+    b1 = jnp.logical_and(upper_bound > size_cluster1, size_cluster1 > lower_bound)
+    b2 = jnp.logical_and(upper_bound > size_cluster2, size_cluster2 > lower_bound)
 
     return jnp.logical_and(b1, b2)
 
 
-def compute_base_noise_std(n, q):
-    num = jnp.sqrt(n) * q + n - 2
-    den = jnp.sqrt(2 * (jnp.sqrt(n) * q + n))
+def _compute_base_noise_std(n_data_points: Int, q_value: Float) -> Float:
+    num = jnp.sqrt(n_data_points) * q_value + n_data_points - 2
+    den = jnp.sqrt(2 * (jnp.sqrt(n_data_points) * q_value + n_data_points))
     return num / den
 
 
 @partial(jax.jit, static_argnums=(1, 2))
-def run_experiment_theorem_typical_part(
-    key, n_data_points, dimension, noise_std, *, idx_data_point=0
-):
+def _run_experiment_theorem_typical_part(
+    key: PRNGKeyArray,
+    n_data_points: Int,
+    dimension: Int,
+    noise_std: Float,
+    *,
+    idx_data_point: Int = 0,
+) -> Int:
     key_centroids, key_labels, key_noise, key_assignment = jax.random.split(key, 4)
 
     true_centroids = jax.random.normal(key_centroids, shape=(2, dimension))
@@ -91,24 +109,43 @@ def run_experiment_theorem_typical_part(
 
 
 def run_theorem_typical_part_experiments(
-    dimension_vals,
-    beta_vals,
-    q_value,
-    n_data_points,
-    n_experiments,
-    path_to_output,
+    dimension_vals: Int[Array, " n_dim_vals"],
+    beta_vals: Float[Array, " n_noise_std_vals"],
+    q_value: Float,
+    n_data_points: Int,
+    n_experiments: Int,
+    path_to_output: str,
     *,
-    overwrite=False,
-    seed=0,
-    batch_size=1000,
-):
+    overwrite: Bool = False,
+    seed: Int = 0,
+    batch_size: Int=1000,
+) -> Dict[str, Array]:
+    """
+    Run the experiments for Theorem 2.8.
+
+    **Arguments:**
+        dimension_vals: The dimensions to test.
+        beta_vals: The noise standard deviations to test.
+        q_value: The q value.
+        n_data_points: The number of data points.
+        n_experiments: The number of experiments to run.
+        path_to_output: The path to save the results.
+        overwrite: Whether to overwrite the output file if it exists.
+        seed: The random seed to use.
+        batch_size: The batch size to use for JAX.
+    **Returns:**
+        results: A dictionary with the results of the experiments.
+            and the parameters used.
+
+    The results are also saved in a .npz file in the specified path.
+    """
     key = jax.random.key(seed)
-    base_noise_std = compute_base_noise_std(n_data_points, q_value)
+    base_noise_std = _compute_base_noise_std(n_data_points, q_value)
     noise_std_vals = beta_vals * base_noise_std
 
     def _iterate_over_keys(key, d, sigma):
         return jax.lax.map(
-            lambda x: run_experiment_theorem_typical_part(x, n_data_points, d, sigma),
+            lambda x: _run_experiment_theorem_typical_part(x, n_data_points, d, sigma),
             xs=jax.random.split(key, n_experiments),
             batch_size=batch_size,
         )
@@ -129,7 +166,7 @@ def run_theorem_typical_part_experiments(
     shape_parameter_space = (len(dimension_vals), len(noise_std_vals))
     empirical_probs = np.ones((*shape_parameter_space, n_experiments)) * -1.0
     cluster_sizes = np.ones((*shape_parameter_space, n_experiments, 2), dtype=int) * -1
-    upper_bound = compute_upper_bound(dimension_vals, noise_std_vals**2)
+    upper_bound = _compute_upper_bound(dimension_vals, noise_std_vals**2)
 
     results = {}
 

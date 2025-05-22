@@ -1,10 +1,26 @@
 import numpy as np
 from scipy import stats
 
+from typing import Dict
+from jaxtyping import Array, Bool, Float, Int, PRNGKeyArray
 
-def compute_conf_interval(probabilities, alpha=0.05):
-    n_s = probabilities.sum(axis=-1)
-    n = probabilities.shape[-1]
+
+def compute_conf_interval(trials: Int[Array, "... n_trials"], alpha: Float = 0.05):
+    """
+    Compute the confidence interval for Binomial proportions using
+    Wilson's Interval.
+
+    **Arguments:**
+        trials: The trials to compute the confidence interval for.
+            Shape (..., n_trials) where ... is any number of batch dimensions and
+            n is the number oftrials performed.
+        alpha: The significance level.
+    **Returns:**
+        A tuple containing the lower and upper bounds of the confidence interval for
+        each batch dimension.
+    """
+    n_s = trials.sum(axis=-1)
+    n = trials.shape[-1]
 
     crit = stats.norm.isf(alpha)
     crit2 = crit**2
@@ -18,11 +34,29 @@ def compute_conf_interval(probabilities, alpha=0.05):
     return center - width, center + width
 
 
-def compute_conf_interval_with_mask(probabilities, mask, alpha=0.05):
+def compute_conf_interval_with_mask(
+    trials: Int[Array, "B1 B2 n_trials"],
+    mask: Int[Array, "B1 B2 n_trials"],
+    alpha: Float = 0.05,
+):
+    """
+    Compute the confidence interval for Binomial proportions using
+    Wilson's Interval. The mask specifies which elements to include in the
+    computation.
+
+    **Arguments:**
+        trials: The trials to compute the confidence interval for.
+            Shape (B1, B2, n_trials) where B1 and B2 are batch dimensions
+            and n is the number of trials performed.
+        mask: The mask to apply to the trials. Shape (B1, B2, n_trials).
+        alpha: The significance level.
+    **Returns:**
+        A tuple containing the lower and upper bounds of the confidence interval.
+    """
     crit = stats.norm.isf(alpha)
     crit2 = crit**2
 
-    def compute_single_case(p, m):
+    def _compute_single_case(p, m):
         n_s = (p * m).sum()
         n = m.sum()
 
@@ -36,14 +70,12 @@ def compute_conf_interval_with_mask(probabilities, mask, alpha=0.05):
         return c, w
 
     center, width = (
-        np.zeros((probabilities.shape[0], probabilities.shape[1])),
-        np.zeros((probabilities.shape[0], probabilities.shape[1])),
+        np.zeros((trials.shape[0], trials.shape[1])),
+        np.zeros((trials.shape[0], trials.shape[1])),
     )
 
-    for i in range(probabilities.shape[0]):
-        for j in range(probabilities.shape[1]):
-            center[i, j], width[i, j] = compute_single_case(
-                probabilities[i, j], mask[i, j]
-            )
+    for i in range(trials.shape[0]):
+        for j in range(trials.shape[1]):
+            center[i, j], width[i, j] = _compute_single_case(trials[i, j], mask[i, j])
 
     return center - width, center + width

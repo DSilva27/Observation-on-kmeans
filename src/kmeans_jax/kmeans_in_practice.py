@@ -274,8 +274,8 @@ def plot_kmeans_in_practice_nmi_results(results, fig_fname=None, fig_suptitle=No
         ax.set_xticks(tick_indices, tick_labels, fontsize=fs)
 
         ax.set_yticks(
-            np.arange(0, noise_variance_vals.shape[0], 2),
-            labels=noise_variance_vals[::2].round(decimals=1),
+            np.arange(0, noise_std_vals.shape[0], 2),
+            labels=noise_std_vals[::2].round(decimals=1),
             fontsize=fs,
         )
         ax.set_xlabel("d [dimension]", fontsize=fs)
@@ -285,7 +285,7 @@ def plot_kmeans_in_practice_nmi_results(results, fig_fname=None, fig_suptitle=No
 
     fs = 16
 
-    noise_variance_vals = results["noise_variance_vals"]
+    noise_std_vals = np.sqrt(results["noise_variance_vals"])
     dimension_vals = results["dimension_vals"]
 
     # x-axis ticks
@@ -298,7 +298,7 @@ def plot_kmeans_in_practice_nmi_results(results, fig_fname=None, fig_suptitle=No
     im = _plot_nmi(results["nmi_kmeans_pca"], ax[1], "PCA + k-means")
     im = _plot_nmi(results["nmi_split_pca"], ax[2], "PCA + Split")
 
-    ax[0].set_ylabel(r"$\sigma^2$ [noise variance]", fontsize=fs)
+    ax[0].set_ylabel(r"$\sigma$ [noise std]", fontsize=fs)
     cbar = plt.colorbar(im)
     cbar.ax.tick_params(labelsize=12)
     cbar.set_label("Normalized Mutual Information", size=14)
@@ -323,8 +323,8 @@ def plot_kmeans_in_practice_loss_results(results, fig_fname=None, fig_suptitle=N
         ax.set_xticks(tick_indices, tick_labels, fontsize=fs)
 
         ax.set_yticks(
-            np.arange(0, noise_variance_vals.shape[0], 2),
-            labels=noise_variance_vals[::2].round(decimals=1),
+            np.arange(0, noise_std_vals.shape[0], 2),
+            labels=noise_std_vals[::2].round(decimals=1),
             fontsize=fs,
         )
         ax.set_xlabel("d [dimension]", fontsize=fs)
@@ -334,7 +334,7 @@ def plot_kmeans_in_practice_loss_results(results, fig_fname=None, fig_suptitle=N
 
     fs = 16
 
-    noise_variance_vals = results["noise_variance_vals"]
+    noise_std_vals = np.sqrt(results["noise_variance_vals"])
     dimension_vals = results["dimension_vals"]
 
     # x-axis ticks
@@ -359,7 +359,7 @@ def plot_kmeans_in_practice_loss_results(results, fig_fname=None, fig_suptitle=N
         "PCA + Split",
     )
 
-    ax[0].set_ylabel(r"$\sigma^2$ [noise variance]", fontsize=fs)
+    ax[0].set_ylabel(r"$\sigma$ [noise std]", fontsize=fs)
     cbar = plt.colorbar(im)
     cbar.ax.set_yticks([-1.0, 0.0, 1.0])  # Set ticks explicitly
     cbar.ax.set_yticklabels(["Ground Truth", "Tie", "Clustering"])  # Set matching labels

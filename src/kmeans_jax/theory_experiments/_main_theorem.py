@@ -1,7 +1,9 @@
 import os
+from typing import Dict
 
 import jax
 import numpy as np
+from jaxtyping import Array, Bool, Float, Int, PRNGKeyArray
 from tqdm import tqdm
 
 
@@ -15,7 +17,12 @@ from ..kmeans import (
 )
 
 
-def _compute_rho(prior_variance, noise_variance, size_cluster_C, size_cluster_T):
+def _compute_rho(
+    prior_variance: Float,
+    noise_variance: Float,
+    size_cluster_C: Float,
+    size_cluster_T: Float,
+) -> Float:
     num = (
         4
         * noise_variance
@@ -35,16 +42,25 @@ def _compute_rho(prior_variance, noise_variance, size_cluster_C, size_cluster_T)
 
 
 def _compute_upper_bound_main_theorem(
-    dimension, prior_variance, noise_variance, size_cluster_C, size_cluster_T
-):
+    dimension: Int,
+    prior_variance: Float,
+    noise_variance: Float,
+    size_cluster_C: Int,
+    size_cluster_T: Int,
+) -> Float:
     return _compute_rho(
         prior_variance, noise_variance, size_cluster_C, size_cluster_T
     ) ** (dimension / 4)
 
 
 def _run_experiment_main_theorem_worst(
-    key, size_cluster_C, size_cluster_T, dimension, prior_std, noise_std
-):
+    key: PRNGKeyArray,
+    size_cluster_C: Int,
+    size_cluster_T: Int,
+    dimension: Int,
+    prior_std: Float,
+    noise_std: Float,
+) -> Int:
     key1, key2, key_data1, key_data2, key_x = jax.random.split(key, 5)
     true_mu_C = jax.random.normal(key1, shape=(dimension,)) * prior_std
     true_mu_T = jax.random.normal(key2, shape=(dimension,)) * prior_std
@@ -65,14 +81,19 @@ def _run_experiment_main_theorem_worst(
     mu_C = jnp.mean(x_C, axis=0)
     mu_T = jnp.mean(x_T, axis=0)
     if jnp.sum((x - mu_T) ** 2) - jnp.sum((x - mu_C) ** 2) < 0.0:
-        return 1.0
+        return 1
     else:
-        return 0.0
+        return 0
 
 
 def _run_experiment_main_theorem_random(
-    key, size_cluster_C, size_cluster_T, dimension, prior_variance, noise_variance
-):
+    key: PRNGKeyArray,
+    size_cluster_C: Int,
+    size_cluster_T: Int,
+    dimension: Int,
+    prior_variance: Float,
+    noise_variance: Float,
+) -> Int:
     key1, key2, key_data1, key_data2, key_x, key_init = jax.random.split(key, 6)
     true_mu_C = jax.random.normal(key1, shape=(dimension,)) * prior_variance
     true_mu_T = jax.random.normal(key2, shape=(dimension,)) * prior_variance
@@ -110,18 +131,38 @@ def _run_experiment_main_theorem_random(
 
 
 def run_main_theorem_experiments(
-    dimension_vals,
-    noise_std_vals,
-    prior_std,
-    size_cluster_C,
-    size_cluster_T,
-    n_experiments,
-    path_to_output,
+    dimension_vals: Int[Array, " n_dim_vals"],
+    noise_std_vals: Float[Array, " n_noise_std_vals"],
+    prior_std: Float,
+    size_cluster_C: Int,
+    size_cluster_T: Int,
+    n_experiments: Int,
+    path_to_output: str,
     *,
-    overwrite=False,
-    seed=0,
-    batch_size=1000,
-):
+    overwrite: Bool = False,
+    seed: Int = 0,
+    batch_size: Int = 1000,
+) -> Dict[str, Array]:
+    """
+    Run the numerical experiments for Theorem 2.6 in the paper.
+
+    **Arguments:**
+        dimension_vals: The dimensions to test.
+        noise_std_vals: The noise standard deviations to test.
+        prior_std: The prior standard deviation.
+        size_cluster_C: The size of the cluster C.
+        size_cluster_T: The size of the cluster T.
+        n_experiments: The number of experiments to run.
+        path_to_output: The path to save the results.
+        overwrite: Whether to overwrite the output file if it exists.
+        seed: The random seed to use.
+        batch_size: The batch size for JAX operations.
+    **Returns:**
+        results: A dictionary containing the results of the experiments
+                and the parameters used.
+    
+    The results are also saved in a .npz file in the specified path.
+    """
     if os.path.exists(path_to_output) and not overwrite:
         raise ValueError(
             f"Ouput file {path_to_output} exists, but overwrite was set to False"

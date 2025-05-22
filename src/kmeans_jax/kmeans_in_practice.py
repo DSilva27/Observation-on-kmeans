@@ -30,7 +30,7 @@ def _mkbasedir(path):
 
 def run_single_experiment(
     key,
-    noise_variance_vals,
+    noise_variance,
     size_cluster1,
     size_cluster2,
     dimension,
@@ -47,11 +47,11 @@ def run_single_experiment(
 
     x_C = true_mu_C[None, ...] + jax.random.normal(
         key_data1, shape=(size_cluster1, dimension)
-    ) * jnp.sqrt(noise_variance_vals)
+    ) * jnp.sqrt(noise_variance)
 
     x_T = true_mu_T[None, ...] + jax.random.normal(
         key_data2, shape=(size_cluster2, dimension)
-    ) * jnp.sqrt(noise_variance_vals)
+    ) * jnp.sqrt(noise_variance)
 
     data = jnp.concatenate([x_C, x_T])
     true_labels = jnp.concatenate(
@@ -96,6 +96,7 @@ def run_single_experiment(
     (_, labels), losses = run_kmeans(data, init_centroids, max_iters=max_iters)
     nmi_kmeans = sk_metrics.normalized_mutual_info_score(true_labels, labels)
 
+    #print(losses.shape)
     # PCA + k-means
     (_, labels_pca), losses_pca = run_kmeans(
         data_pca, init_centroids_pca, max_iters=max_iters
@@ -185,11 +186,16 @@ def run_kmeans_in_practice_experiments(
         "num_pca_components": num_pca_components,
         "init_method": init_method,
         "max_iters": max_iters,
+        # run information
+        "i": 0,
+        "j": 0,
     }
 
     for i in tqdm(range(len(dimension_vals))):
+        results["i"] = i
         logging.info(f"  Running for d = {dimension_vals[i]}")
         for j in range(len(noise_variance_vals)):
+            results["j"] = j
             logging.info(
                 f"    Running for noise_variance_vals = {noise_variance_vals[j]}"
             )
@@ -199,7 +205,7 @@ def run_kmeans_in_practice_experiments(
                 key, subkey = jax.random.split(key)
                 experiment_result = run_single_experiment(
                     key=subkey,
-                    noise_variance_vals=noise_variance_vals[j],
+                    noise_variance=noise_variance_vals[j],
                     size_cluster1=size_cluster1,
                     size_cluster2=size_cluster2,
                     dimension=dimension_vals[i],
@@ -223,16 +229,9 @@ def run_kmeans_in_practice_experiments(
 
             jnp.savez(
                 path_to_output,
-                i=i,
-                j=j,
-                nmi_kmeans=results["nmi_kmeans"],
-                nmi_kmeans_pca=results["nmi_kmeans_pca"],
-                nmi_split_pca=results["nmi_split_pca"],
-                loss_kmeans=results["loss_kmeans"],
-                loss_kmeans_pca=results["loss_kmeans_pca"],
-                loss_split_pca=results["loss_split_pca"],
-                loss_true_partition=results["loss_true_partition"],
+                **results,
             )
+
             logging.info(f"Saved preliminary results to {path_to_output}")
     logging.info("Finished running all experiments.")
     return results

@@ -80,24 +80,26 @@ def _kmeans_step(carry, data):
     losses = losses.at[counter].set(compute_loss(data, centroids, cluster_assignments))
     return (centroids, cluster_assignments, old_cluster_assignments, losses, counter + 1)
 
-
 def _kmeans_stop_condition(carry, max_steps):
-    _, cluster_assignments, old_cluster_assignments, _, counter = carry
+    _, cluster_assignments, old_cluster_assignments, losses, counter = carry
 
     cond1 = jnp.any(cluster_assignments != old_cluster_assignments)
     cond2 = counter <= max_steps
-
+    
     return cond1 & cond2
 
 
 def run_kmeans(data, init_centroids, max_iters=1000):
-    init_centroids = init_centroids.copy()
-    assigments = assign_clusters(init_centroids, data)
+
     losses = jnp.zeros(max_iters)
     counter = 0
+    # dummy init
+    init_assignments = jnp.ones(data.shape[0], dtype=int) * -1
 
     cond_fun = jax.jit(partial(_kmeans_stop_condition, max_steps=max_iters))
-    carry = (init_centroids, assigments, assigments + 1, losses, counter)
+    
+    # makes sure the initial assignment does not trigger the stop condition
+    carry = (init_centroids, init_assignments, init_assignments-1, losses, counter)
 
     @jax.jit
     def run_kmeans_inner(carry):

@@ -8,6 +8,7 @@ from sklearn import metrics as sk_metrics
 from sklearn.decomposition import PCA
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 
 from .kmeans import (
     assign_clusters,
@@ -18,6 +19,9 @@ from .kmeans import (
     update_centroids,
 )
 
+
+mpl.rcParams["pdf.fonttype"] = 42  # TrueType fonts
+mpl.rcParams["ps.fonttype"] = 42
 
 def _mkbasedir(path):
     if not os.path.exists(path):
@@ -261,7 +265,7 @@ def plot_kmeans_in_practice_nmi_results(results, fig_fname=None, fig_suptitle=No
 
     fs = 16
 
-    noise_variance_vals = results["noise_variance_vals"] ** 2
+    noise_variance_vals = results["noise_variance_vals"]
     dimension_vals = results["dimension_vals"]
 
     # x-axis ticks
@@ -287,4 +291,66 @@ def plot_kmeans_in_practice_nmi_results(results, fig_fname=None, fig_suptitle=No
 
     return fig, ax
 
+def plot_kmeans_in_practice_loss_results(results, fig_fname=None, fig_suptitle=None):
 
+    def _compute_loss_metric(loss1, loss2):
+        return jnp.where(
+            jnp.isclose(loss1, loss2), 0, jnp.where(loss1 - loss2 < 0, 1, -1)
+        ).mean(-1)
+
+    def _plot_loss(loss_matrix, ax, method):
+        im = ax.imshow(
+            loss_matrix.T, origin="lower", vmin=-1, vmax=1, cmap="bwr_r"
+        )
+        ax.set_xticks(tick_indices, tick_labels, fontsize=fs)
+
+        ax.set_yticks(
+            np.arange(0, noise_variance_vals.shape[0], 2),
+            labels=noise_variance_vals[::2].round(decimals=1),
+            fontsize=fs,
+        )
+        ax.set_xlabel("d [dimension]", fontsize=fs)
+        ax.set_title(method, fontsize=fs)
+
+        return im
+
+    fs = 16
+
+    noise_variance_vals = results["noise_variance_vals"]
+    dimension_vals = results["dimension_vals"]
+
+    # x-axis ticks
+    tick_indices = np.linspace(0, len(dimension_vals) - 1, num=5, dtype=int)
+    tick_labels = [f"{d:.0f}" for d in np.log10(dimension_vals[tick_indices])]
+    tick_labels = [rf"$10^{d}$" for d in tick_labels]
+
+    fig, ax = plt.subplots(1, 3, figsize=(15, 4), sharey=True, layout="compressed")
+    im = _plot_loss(
+        _compute_loss_metric(results["loss_kmeans"], results["loss_true_partition"]),
+        ax[0],
+        "k-means",
+    )
+    im = _plot_loss(
+        _compute_loss_metric(results["loss_kmeans_pca"], results["loss_true_partition"]),
+        ax[1],
+        "PCA + k-means",
+    )
+    im = _plot_loss(
+        _compute_loss_metric(results["loss_split_pca"], results["loss_true_partition"]),
+        ax[2],
+        "PCA + Split",
+    )
+
+    ax[0].set_ylabel(r"$\sigma^2$ [noise variance]", fontsize=fs)
+    cbar = plt.colorbar(im)
+    cbar.ax.set_yticks([-1.0, 0.0, 1.0])  # Set ticks explicitly
+    cbar.ax.set_yticklabels(["Ground Truth", "Tie", "Clustering"])  # Set matching labels
+    cbar.set_label("Partition with better loss", size=14)
+
+    if fig_suptitle is not None:
+        fig.suptitle(fig_suptitle, fontsize=fs)
+
+    if fig_fname is not None:
+        plt.savefig(fig_fname, bbox_inches="tight", dpi=300)
+
+    return fig, ax

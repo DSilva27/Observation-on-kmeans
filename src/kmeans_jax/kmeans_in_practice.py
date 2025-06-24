@@ -13,6 +13,10 @@ from sklearn import metrics as sk_metrics
 from sklearn.decomposition import PCA
 from tqdm import tqdm
 
+from .hartigan_kmeans import (
+    run_batched_hartigan_kmeans,
+    run_hartigan_kmeans,
+)
 from .kmeans import (
     assign_clusters,
     compute_loss,
@@ -104,6 +108,18 @@ def run_single_experiment(
     (_, labels), losses = run_kmeans(data, init_centroids, max_iters=max_iters)
     nmi_kmeans = sk_metrics.normalized_mutual_info_score(true_labels, labels)
 
+    # Hartigan k-means
+    (_, labels_hartigan), losses_hartigan = run_hartigan_kmeans(
+        data, init_centroids, max_iters=max_iters
+    )
+    nmi_hartigan = sk_metrics.normalized_mutual_info_score(true_labels, labels_hartigan)
+
+    # Batched Hartigan k-means
+    (_, labels_bhartigan), losses_bhartigan = run_batched_hartigan_kmeans(
+        data, init_centroids, max_iters=max_iters
+    )
+    nmi_bhartigan = sk_metrics.normalized_mutual_info_score(true_labels, labels_bhartigan)
+
     # print(losses.shape)
     # PCA + k-means
     (_, labels_pca), _ = run_kmeans(data_pca, init_centroids_pca, max_iters=max_iters)
@@ -117,8 +133,15 @@ def run_single_experiment(
         data, update_centroids(data, labels_pca_split, 2), labels_pca_split
     )
     results = {
-        "nmi": (nmi_kmeans, nmi_kmeans_pca, nmi_split_pca),
-        "loss": (losses[-1], loss_pca, loss_pca_split, true_loss),
+        "nmi": (nmi_kmeans, nmi_hartigan, nmi_bhartigan, nmi_kmeans_pca, nmi_split_pca),
+        "loss": (
+            losses[-1],
+            losses_hartigan[-1],
+            losses_bhartigan[-1],
+            loss_pca,
+            loss_pca_split,
+            true_loss,
+        ),
     }
     return results
 
@@ -197,9 +220,13 @@ def run_kmeans_in_practice_experiments(
     results = {
         # experiment results
         "nmi_kmeans": np.zeros(shape_outputs),
+        "nmi_hartigan": np.zeros(shape_outputs),
+        "nmi_bhartigan": np.zeros(shape_outputs),
         "nmi_kmeans_pca": np.zeros(shape_outputs),
         "nmi_split_pca": np.zeros(shape_outputs),
         "loss_kmeans": np.zeros(shape_outputs),
+        "loss_hartigan": np.zeros(shape_outputs),
+        "loss_bhartigan": np.zeros(shape_outputs),
         "loss_kmeans_pca": np.zeros(shape_outputs),
         "loss_split_pca": np.zeros(shape_outputs),
         "loss_true_partition": np.zeros(shape_outputs),
@@ -243,12 +270,16 @@ def run_kmeans_in_practice_experiments(
                 )
 
                 results["nmi_kmeans"][i, j, k] = experiment_result["nmi"][0]
-                results["nmi_kmeans_pca"][i, j, k] = experiment_result["nmi"][1]
-                results["nmi_split_pca"][i, j, k] = experiment_result["nmi"][2]
+                results["nmi_hartigan"][i, j, k] = experiment_result["nmi"][1]
+                results["nmi_bhartigan"][i, j, k] = experiment_result["nmi"][2]
+                results["nmi_kmeans_pca"][i, j, k] = experiment_result["nmi"][3]
+                results["nmi_split_pca"][i, j, k] = experiment_result["nmi"][4]
                 results["loss_kmeans"][i, j, k] = experiment_result["loss"][0]
-                results["loss_kmeans_pca"][i, j, k] = experiment_result["loss"][1]
-                results["loss_split_pca"][i, j, k] = experiment_result["loss"][2]
-                results["loss_true_partition"][i, j, k] = experiment_result["loss"][3]
+                results["loss_hartigan"][i, j, k] = experiment_result["loss"][1]
+                results["loss_bhartigan"][i, j, k] = experiment_result["loss"][2]
+                results["loss_kmeans_pca"][i, j, k] = experiment_result["loss"][3]
+                results["loss_split_pca"][i, j, k] = experiment_result["loss"][4]
+                results["loss_true_partition"][i, j, k] = experiment_result["loss"][5]
 
             logging.info("      Done running experiments. Moving to next setting.")
             logging.info("=" * 100)

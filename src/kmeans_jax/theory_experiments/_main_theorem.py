@@ -81,7 +81,7 @@ def _run_experiment_main_theorem_worst(
     mu_C = jnp.mean(x_C, axis=0)
     mu_T = jnp.mean(x_T, axis=0)
 
-    point_swaps =np.sum((x - mu_T) ** 2) - jnp.sum((x - mu_C) ** 2)
+    point_swaps = np.sum((x - mu_T) ** 2) - jnp.sum((x - mu_C) ** 2)
 
     output = jax.lax.cond(
         point_swaps < 0.0,
@@ -124,9 +124,8 @@ def _run_experiment_main_theorem_random(
     x_assign = assignments1[idx]
     x_not_assign = 1 - x_assign
 
-    point_swaps = (
-        jnp.sum((x - centroids[x_not_assign]) ** 2)
-        - jnp.sum((x - centroids[x_assign]) ** 2)
+    point_swaps = jnp.sum((x - centroids[x_not_assign]) ** 2) - jnp.sum(
+        (x - centroids[x_assign]) ** 2
     )
 
     output = jax.lax.cond(

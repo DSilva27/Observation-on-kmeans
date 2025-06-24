@@ -2,13 +2,13 @@ from functools import partial
 from typing import Tuple
 
 import jax
-from jaxtyping import Array, Bool, Float, Int, PRNGKeyArray
+from jaxtyping import Array, Bool, Float, Int
 
 
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 
-from .kmeans import update_centroids, compute_loss, assign_clusters
+from .kmeans import assign_clusters, compute_loss, update_centroids
 
 
 def weight_distance(assignment, cluster_id, cluster_weight, distance):

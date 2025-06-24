@@ -53,7 +53,7 @@ packages = [
 ]
 
 [tool.hatch.build.hooks.vcs]
-version-file = "src/kmeans_jax/__about__.py"
+version-file = "src/kmeans_jax/kmeansjax_version.py"
 
 [tool.ruff]
 extend-include = ["*.ipynb"]

@@ -1,5 +1,5 @@
 [project]
-name = "Observation-on-kmeans"
+name = "kmeans_jax"
 dynamic = ["version"]
 description = "Numerical experiments for 'An Observation Lloyds k-Means Algorithm in High Dimensions.'"
 readme = "README.md"

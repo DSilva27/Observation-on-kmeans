@@ -23,7 +23,8 @@ dependencies = [
   "scipy",
   "scikit-learn",
   "seaborn",
-  "jaxtyping"
+  "jaxtyping",
+  "equinox"
 ]
 
 [project.optional-dependencies]

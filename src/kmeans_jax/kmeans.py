@@ -204,7 +204,7 @@ def run_kmeans(
     losses = jnp.zeros(max_iters)
     counter = 0
     # dummy init
-    init_assignments = jnp.ones(data.shape[0], dtype=int) * -1
+    init_assignments = assign_clusters(init_centroids, data)
 
     cond_fun = jax.jit(partial(_kmeans_stop_condition, max_steps=max_iters))
 

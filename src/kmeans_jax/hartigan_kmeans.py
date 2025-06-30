@@ -25,7 +25,7 @@ def assign_dp_to_cluster_hartigan(
 ):
     cluster_weights = jnp.bincount(cluster_assignments, length=centroids.shape[0])
 
-    distances = jnp.linalg.norm(data_point[None, ...] - centroids, axis=-1) ** 2
+    distances = jnp.sum((data_point[None, ...] - centroids) ** 2, axis=-1)
     distances = jax.vmap(weight_distance, in_axes=(None, 0, 0, 0))(
         assignment_point, jnp.arange(centroids.shape[0]), cluster_weights, distances
     )
@@ -35,9 +35,7 @@ def assign_dp_to_cluster_hartigan(
 def inner_loop_hartigan(cluster_assignments, centroids, data):
     def body_fun(i, val):
         cluster_assignments, centroids = val
-        # assignment = assign_dp_to_cluster_modified(
-        #     centroids_num, centroids_den, cluster_assignments[i], data[i]
-        # )
+
         assignment = assign_dp_to_cluster_hartigan(
             centroids, cluster_assignments, cluster_assignments[i], data[i]
         )
@@ -110,8 +108,8 @@ def run_hartigan_kmeans(
 ]:
     losses = jnp.zeros(max_iters)
     counter = 0
-    # dummy init
-    init_assignments = jnp.ones(data.shape[0], dtype=int) * -1
+
+    init_assignments = assign_clusters(init_centroids, data)
 
     cond_fun = jax.jit(partial(_hart_kmeans_stop_condition, max_steps=max_iters))
 
@@ -134,8 +132,6 @@ def run_hartigan_kmeans(
 
 
 ### Batched Hartigan
-
-
 def weight_distances(cluster_assignments, cluster_ids, cluster_weights, distances):
     return jax.vmap(
         jax.vmap(weight_distance, in_axes=(None, 0, 0, 0)), in_axes=(0, None, None, 0)
@@ -144,7 +140,7 @@ def weight_distances(cluster_assignments, cluster_ids, cluster_weights, distance
 
 def assign_dp_to_cluster_batched_hartigan(centroids, cluster_assignments, data):
     cluster_weights = jnp.bincount(cluster_assignments, length=centroids.shape[0])
-    distances = jnp.linalg.norm(data[:, None, :] - centroids[None, :, :], axis=-1) ** 2
+    distances = jnp.sum((data[:, None, :] - centroids[None, :, :]) ** 2, axis=-1)
     distances = weight_distances(
         cluster_assignments, jnp.arange(centroids.shape[0]), cluster_weights, distances
     )
@@ -190,7 +186,7 @@ def run_batched_hartigan_kmeans(
 ]:
     losses = jnp.zeros(max_iters)
     counter = 0
-    # dummy init
+
     init_assignments = assign_clusters(init_centroids, data)
     cond_fun = jax.jit(partial(_batched_hartigan_stop_condition, max_steps=max_iters))
 

@@ -15,7 +15,6 @@ https://epubs.siam.org/doi/10.1137/090771806
 from typing import Tuple
 from typing_extensions import Literal
 
-import equinox as eqx
 import jax
 import jax.numpy as jnp
 from jaxtyping import Array, Float, Int, PRNGKeyArray
@@ -33,12 +32,16 @@ def randomized_range_finder(
         return Q
 
     Q = jax.random.normal(key, shape=(a.shape[1], size))
-    Q = jax.lax.fori_loop(0, n_iter, body_fun, init_val=Q)
+
+    # do firs iteraiton
+    Q = body_fun(0, Q)
+
+    Q = jax.lax.fori_loop(1, n_iter, body_fun, init_val=Q)
     Q, _ = qr_normalizer(a @ Q)
     return Q
 
 
-@eqx.filter_jit
+# @eqx.filter_jit
 def randomized_svd(
     key: PRNGKeyArray,
     a: Float[Array, "n_samples n_features"],
@@ -91,7 +94,7 @@ def randomized_svd(
     if is_transpose:
         return Vt[:n_components].T, S[:n_components], U[:, :n_components].T
     else:
-        return U[:, :n_components], S[:n_components], Vt[:n_components, :].T
+        return U[:, :n_components], S[:n_components], Vt[:n_components, :]
 
 
 def principal_component_analysis(

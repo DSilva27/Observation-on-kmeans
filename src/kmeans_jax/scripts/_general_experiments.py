@@ -260,7 +260,7 @@ def run_general_experiments(
                 results["loss_hartigan"][i, j, k] = experiment_result["loss"][1]
                 results["loss_bhartigan"][i, j, k] = experiment_result["loss"][2]
                 results["loss_kmeans_pca"][i, j, k] = experiment_result["loss"][3]
-                results["loss_true_partition"][i, j, k] = experiment_result["loss"][5]
+                results["loss_true_partition"][i, j, k] = experiment_result["loss"][4]
 
             logging.info("      Done running experiments. Moving to next setting.")
             logging.info("=" * 100)

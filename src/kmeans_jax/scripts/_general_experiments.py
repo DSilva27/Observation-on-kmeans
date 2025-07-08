@@ -69,7 +69,7 @@ def run_single_experiment(
     size_clusters: Int[Array, " n_clusters"],
     dimension: Int,
     num_pca_components: Int,
-    init_method: Literal["random_centers", "kmeans++", "random partition"],
+    init_method: Literal["random", "kmeans++", "random partition"],
     n_init: Int,
     prior_variance: Float,
     max_iter: Int,
@@ -166,7 +166,7 @@ def run_general_experiments(
     n_experiments: Int,
     n_inits_per_experiment: Int,
     num_pca_components: Int,
-    init_method: Literal["random_centers", "kmeans++", "random partition"],
+    init_method: Literal["random", "kmeans++", "random partition"],
     path_to_output: str,
     *,
     max_iter: Int = 1000,
@@ -185,7 +185,7 @@ def run_general_experiments(
         - n_inits_per_experiment: Number of initializations per experiment.
         - num_pca_components: Number of PCA components to use.
         - init_method: Initialization method for k-means.
-            One of 'random_centers', 'kmeans++', or 'random partition'.
+            One of 'random', 'kmeans++', or 'random partition'.
         - path_to_output: Path to save the results.
         - max_iter: Maximum number of iterations for k-means.
         - seed: Random seed for reproducibility.
@@ -204,12 +204,12 @@ def run_general_experiments(
     assert jnp.all(max_iter > 0)
 
     assert init_method in [
-        "random_centers",
+        "random",
         "kmeans++",
         "random partition",
     ], (
         "Unknown initialization method. "
-        + "Only 'random_centers', 'kmeans++', and 'random partition' are supported."
+        + "Only 'random', 'kmeans++', and 'random partition' are supported."
     )
     if os.path.exists(path_to_output) and not overwrite:
         raise ValueError(

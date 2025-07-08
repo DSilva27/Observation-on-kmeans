@@ -10,7 +10,7 @@ from tqdm import tqdm
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 
-from ..kmeans import (
+from ..kmeans._common_functions import (
     assign_clusters,
     update_centroids,
 )

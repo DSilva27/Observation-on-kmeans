@@ -1,9 +1,9 @@
 from . import (
     kmeans as kmeans,
-    kmeans_in_practice as kmeans_in_practice,
     scripts as scripts,
     theory_experiments as theory_experiments,
 )
+from .kmeans import KMeans as KMeans
 from .kmeansjax_version import __version__
 from .svd_utils import (
     principal_component_analysis as principal_component_analysis,
@@ -11,4 +11,4 @@ from .svd_utils import (
 )
 
 
-__all__ = ["__version__"]
+__all__ = ["__version__", "KMeans"]

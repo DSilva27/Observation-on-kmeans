@@ -13,17 +13,22 @@ from sklearn import metrics as sk_metrics
 from sklearn.decomposition import PCA
 from tqdm import tqdm
 
-from .hartigan_kmeans import (
+from ..kmeans._common_functions import (
+    assign_clusters,
+    compute_loss,
+    update_centroids,
+)
+from ..kmeans._hartigan import (
     run_batched_hartigan_kmeans,
     run_hartigan_kmeans,
 )
-from .kmeans import (
-    assign_clusters,
-    compute_loss,
+from ..kmeans._init_methods import (
+    kmeans_init_from_random_partition,
     kmeans_plusplus_init,
     kmeans_random_init,
+)
+from ..kmeans._lloyd import (
     run_kmeans,
-    update_centroids,
 )
 
 
@@ -92,10 +97,9 @@ def run_single_experiment(
         init_partition = assign_clusters(init_centroids, data)
 
     elif init_method == "random_partition":
-        init_partition = jax.random.choice(
-            key_init, true_labels, shape=(data.shape[0],), replace=False
+        init_centroids, init_partition = kmeans_init_from_random_partition(
+            data, 2, key_init, labels=true_labels
         )
-        init_centroids = update_centroids(data, init_partition, 2)
         init_centroids_pca = update_centroids(data_pca, init_partition, 2)
 
     else:
@@ -135,9 +139,9 @@ def run_single_experiment(
     results = {
         "nmi": (nmi_kmeans, nmi_hartigan, nmi_bhartigan, nmi_kmeans_pca, nmi_split_pca),
         "loss": (
-            losses[-1],
-            losses_hartigan[-1],
-            losses_bhartigan[-1],
+            losses,
+            losses_hartigan,
+            losses_bhartigan,
             loss_pca,
             loss_pca_split,
             true_loss,

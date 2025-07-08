@@ -10,11 +10,11 @@ from tqdm import tqdm
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 
-from ..kmeans import (
+from ..kmeans._common_functions import (
     assign_clusters,
-    kmeans_random_init,
     update_centroids,
 )
+from ..kmeans._init_methods import kmeans_random_init
 
 
 def _compute_rho(

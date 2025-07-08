@@ -8,7 +8,7 @@ import numpy as np
 from jaxtyping import Array, Bool, Float, Int, PRNGKeyArray
 from tqdm import tqdm
 
-from ..kmeans import update_centroids
+from ..kmeans._common_functions import update_centroids
 
 
 def _compute_rho(n_data_points: Int, q_value: Float, noise_variance: Float) -> Float:

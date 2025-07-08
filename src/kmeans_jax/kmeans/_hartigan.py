@@ -8,7 +8,7 @@ from jaxtyping import Array, Bool, Float, Int
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 
-from .kmeans import assign_clusters, compute_loss, update_centroids
+from ._common_functions import assign_clusters, compute_loss, update_centroids
 
 
 def weight_distance(assignment, cluster_id, cluster_weight, distance):
@@ -76,7 +76,8 @@ def _hartigan_kmeans_step(
     cluster_assignments, centroids = inner_loop_hartigan(
         old_cluster_assignments.copy(), centroids, data
     )
-    losses = losses.at[counter].set(compute_loss(data, centroids, cluster_assignments))
+    # losses = losses.at[counter].set(compute_loss(data, centroids, cluster_assignments))
+    losses = compute_loss(data, centroids, cluster_assignments)
     return (centroids, cluster_assignments, old_cluster_assignments, losses, counter + 1)
 
 
@@ -106,7 +107,7 @@ def run_hartigan_kmeans(
     Tuple[Float[Array, "K d"], Int[Array, " n"]],
     Float[Array, " max_steps"],
 ]:
-    losses = jnp.zeros(max_iters)
+    losses = 0.0  # jnp.zeros(max_iters)
     counter = 0
 
     init_assignments = assign_clusters(init_centroids, data)
@@ -125,9 +126,8 @@ def run_hartigan_kmeans(
         )
 
     centroids, assigments, _, losses, counter = run_batched_hartigan_inner(carry)
-    losses = losses[:counter]
-
-    centroids.block_until_ready()
+    # losses = losses[:counter]
+    # centroids.block_until_ready()
     return (centroids, assigments), losses
 
 
@@ -140,6 +140,8 @@ def weight_distances(cluster_assignments, cluster_ids, cluster_weights, distance
 
 def assign_dp_to_cluster_batched_hartigan(centroids, cluster_assignments, data):
     cluster_weights = jnp.bincount(cluster_assignments, length=centroids.shape[0])
+    cluster_weights = jnp.clip(cluster_weights, min=2, max=None)
+
     distances = jnp.sum((data[:, None, :] - centroids[None, :, :]) ** 2, axis=-1)
     distances = weight_distances(
         cluster_assignments, jnp.arange(centroids.shape[0]), cluster_weights, distances
@@ -154,12 +156,13 @@ def _batched_hartigan_step(carry, data):
         centroids, old_cluster_assignments, data
     )
     centroids = update_centroids(data, cluster_assignments, centroids.shape[0])
-    losses = losses.at[counter].set(compute_loss(data, centroids, cluster_assignments))
+    # losses = losses.at[counter].set(compute_loss(data, centroids, cluster_assignments))
+    losses = compute_loss(data, centroids, cluster_assignments)
     return (centroids, cluster_assignments, old_cluster_assignments, losses, counter + 1)
 
 
 def _batched_hartigan_stop_condition(carry, max_steps):
-    _, cluster_assignments, old_cluster_assignments, losses, counter = carry
+    centroids, cluster_assignments, old_cluster_assignments, losses, counter = carry
 
     # loss_prev_prev = jax.lax.cond(
     #     counter > 2, lambda x: losses[x - 3], lambda x: jnp.inf, counter
@@ -170,10 +173,9 @@ def _batched_hartigan_stop_condition(carry, max_steps):
     # loss_diff_2 = jnp.abs(loss_prev - loss_prev_prev)
 
     cond1 = jnp.any(cluster_assignments != old_cluster_assignments)
-    # cond2 = jnp.abs(loss_diff_1 - loss_diff_2) / loss_diff_1 > 1e-6
-    cond3 = counter <= max_steps
-    # return cond1 & cond2 & cond3
-    return cond1 & cond3
+    cond2 = counter <= max_steps
+    # cond3 = jnp.any(jnp.bincount(cluster_assignments, length=centroids.shape[0]) < 2)
+    return cond1 & cond2  # & cond3
 
 
 def run_batched_hartigan_kmeans(
@@ -184,7 +186,7 @@ def run_batched_hartigan_kmeans(
     Tuple[Float[Array, "K d"], Int[Array, " n"]],
     Float[Array, " max_steps"],
 ]:
-    losses = jnp.zeros(max_iters)
+    losses = 0.0  # jnp.zeros(max_iters)
     counter = 0
 
     init_assignments = assign_clusters(init_centroids, data)
@@ -202,7 +204,6 @@ def run_batched_hartigan_kmeans(
         )
 
     centroids, assigments, _, losses, counter = run_batched_hartigan_inner(carry)
-    losses = losses[:counter]
-
-    centroids.block_until_ready()
+    # losses = losses[:counter]
+    # centroids.block_until_ready()
     return (centroids, assigments), losses

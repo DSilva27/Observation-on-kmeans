@@ -1,33 +1,35 @@
+import argparse
 import logging
 import os
-from typing import Dict
+from typing import Dict, Tuple
 from typing_extensions import Literal
 
 import jax
 import jax.numpy as jnp
-import matplotlib as mpl
 import numpy as np
+import yaml
 from jaxtyping import Array, Bool, Float, Int, PRNGKeyArray
 from sklearn import metrics as sk_metrics
 from tqdm import tqdm
 
-from ..hartigan_kmeans import (
-    run_batched_hartigan_kmeans,
-    run_hartigan_kmeans,
-)
-from ..kmeans import (
-    assign_clusters,
+from ..kmeans import KMeans
+from ..kmeans._common_functions import (
     compute_loss,
-    kmeans_plusplus_init,
-    kmeans_random_init,
-    run_kmeans,
     update_centroids,
 )
 from ..svd_utils import principal_component_analysis
 
 
-mpl.rcParams["pdf.fonttype"] = 42  # TrueType fonts
-mpl.rcParams["ps.fonttype"] = 42
+DEFAULT_PARAMETERS = {
+    "dimension_values": np.logspace(0.8, 7, 15, dtype=int)[:11],
+    "prior_variance": 1.0,
+    "noise_variance_vals": np.linspace(2.0, 6.0, 10) ** 2,
+    "n_experiments": 100,
+    "n_inits_per_experiment": 10,
+    "num_pca_components": 2,
+    "max_iter": 1000,
+    "seed": 0,
+}
 
 
 def _mkbasedir(path: str) -> None:
@@ -39,6 +41,27 @@ def _mkbasedir(path: str) -> None:
     return
 
 
+def _generate_data(
+    key,
+    noise_variance: Float,
+    n_clusters: Int,
+    size_clusters: Int[Array, " n_clusters"],
+    dimension: Int,
+    prior_variance: Float,
+) -> Tuple[Float[Array, " n d"], Float[Array, " n_clusters d"], Int[Array, " n"]]:
+    key_centers, key_noise = jax.random.split(key, 2)
+    true_centers = jax.random.normal(
+        key_centers, shape=(n_clusters, dimension)
+    ) * jnp.sqrt(prior_variance)
+    true_labels = jnp.arange(n_clusters).repeat(size_clusters)
+
+    data = true_centers[true_labels] + jax.random.normal(
+        key_noise, shape=(true_labels.shape[0], dimension)
+    ) * jnp.sqrt(noise_variance)
+
+    return data, true_labels
+
+
 def run_single_experiment(
     key: PRNGKeyArray,
     noise_variance: Float,
@@ -47,20 +70,21 @@ def run_single_experiment(
     dimension: Int,
     num_pca_components: Int,
     init_method: Literal["random_centers", "kmeans++", "random_partition"],
-    var_prior: Float,
-    max_iters: Int,
+    n_init: Int,
+    prior_variance: Float,
+    max_iter: Int,
 ) -> Dict[str, Float]:
-    key_centers, key_noise, key_pca, key_init = jax.random.split(key, 4)
+    key_data, key_pca, key_run = jax.random.split(key, 3)
 
     # Generate data
-    true_centers = jax.random.normal(
-        key_centers, shape=(n_clusters, dimension)
-    ) * jnp.sqrt(var_prior)
-    true_labels = jnp.arange(n_clusters).repeat(size_clusters)
-
-    data = true_centers[true_labels] + jax.random.normal(
-        key_noise, shape=(true_labels.shape[0], dimension)
-    ) * jnp.sqrt(noise_variance)
+    data, true_labels = _generate_data(
+        key=key_data,
+        noise_variance=noise_variance,
+        n_clusters=n_clusters,
+        size_clusters=size_clusters,
+        dimension=dimension,
+        prior_variance=prior_variance,
+    )
 
     true_data_averages = update_centroids(data, true_labels, n_clusters)
     true_loss = compute_loss(data, true_data_averages, true_labels)
@@ -70,60 +94,62 @@ def run_single_experiment(
         key=key_pca, data=data, n_components=num_pca_components, mode="randomized"
     )
 
-    ### Initialization
-    if init_method == "random_centers":
-        init_centroids, indices = kmeans_random_init(data, n_clusters, key_init)
-        init_centroids_pca = data_pca[indices]
-        init_partition = assign_clusters(init_centroids, data)
-
-    elif init_method == "kmeans++":
-        init_centroids, indices = kmeans_plusplus_init(data, n_clusters, key_init)
-        init_centroids_pca = data_pca[indices]
-        init_partition = assign_clusters(init_centroids, data)
-
-    elif init_method == "random_partition":
-        init_partition = jax.random.choice(
-            key_init, true_labels, shape=(data.shape[0],), replace=False
-        )
-        init_centroids = update_centroids(data, init_partition, n_clusters)
-        init_centroids_pca = update_centroids(data_pca, init_partition, n_clusters)
-
-    else:
-        raise ValueError(
-            f"Unknown initialization method: {init_method}"
-            + "Only 'random_centers', 'kmeans++', and 'random_partition' are supported."
-        )
-
-    # Regular k-means
-    (_, labels), losses = run_kmeans(data, init_centroids, max_iters=max_iters)
-    nmi_kmeans = sk_metrics.normalized_mutual_info_score(true_labels, labels)
-
-    # Hartigan k-means
-    (_, labels_hartigan), losses_hartigan = run_hartigan_kmeans(
-        data, init_centroids, max_iters=max_iters
+    lloyd_kmeans = KMeans(
+        n_clusters=n_clusters,
+        n_init=n_init,
+        max_iter=max_iter,
+        init=init_method,
+        algorithm="Lloyd",
     )
-    nmi_hartigan = sk_metrics.normalized_mutual_info_score(true_labels, labels_hartigan)
 
-    # Batched Hartigan k-means
-    (_, labels_bhartigan), losses_bhartigan = run_batched_hartigan_kmeans(
-        data, init_centroids, max_iters=max_iters
+    hartigan_kmeans = KMeans(
+        n_clusters=n_clusters,
+        n_init=n_init,
+        max_iter=max_iter,
+        init=init_method,
+        algorithm="Hartigan",
     )
-    nmi_bhartigan = sk_metrics.normalized_mutual_info_score(true_labels, labels_bhartigan)
 
-    # print(losses.shape)
-    # PCA + k-means
-    (_, labels_pca), _ = run_kmeans(data_pca, init_centroids_pca, max_iters=max_iters)
-    nmi_kmeans_pca = sk_metrics.normalized_mutual_info_score(true_labels, labels_pca)
+    bhartigan_kmeans = KMeans(
+        n_clusters=n_clusters,
+        n_init=n_init,
+        max_iter=max_iter,
+        init=init_method,
+        algorithm="Batched Hartigan",
+    )
+
+    # Run k-means
+    lloyd_results = lloyd_kmeans.fit(key_run, data, output="best")
+    hartigan_results = hartigan_kmeans.fit(key_run, data, output="best")
+    bhartigan_results = bhartigan_kmeans.fit(key_run, data, output="best")
+    lloyd_pca_results = lloyd_kmeans.fit(key_run, data_pca, output="best")
+
+    # Compute the NMI
+    nmi_kmeans = sk_metrics.normalized_mutual_info_score(
+        true_labels, lloyd_results["labels"]
+    )
+    nmi_hartigan = sk_metrics.normalized_mutual_info_score(
+        true_labels, hartigan_results["labels"]
+    )
+    nmi_bhartigan = sk_metrics.normalized_mutual_info_score(
+        true_labels, bhartigan_results["labels"]
+    )
+    nmi_kmeans_pca = sk_metrics.normalized_mutual_info_score(
+        true_labels, lloyd_pca_results["labels"]
+    )
+
     loss_pca = compute_loss(
-        data, update_centroids(data, labels_pca, n_clusters), labels_pca
+        data,
+        update_centroids(data, lloyd_pca_results["labels"], n_clusters),
+        lloyd_pca_results["labels"],
     )
 
     results = {
         "nmi": (nmi_kmeans, nmi_hartigan, nmi_bhartigan, nmi_kmeans_pca),
         "loss": (
-            losses[-1],
-            losses_hartigan[-1],
-            losses_bhartigan[-1],
+            lloyd_results["loss"],
+            hartigan_results["loss"],
+            bhartigan_results["loss"],
             loss_pca,
             true_loss,
         ),
@@ -138,11 +164,12 @@ def run_general_experiments(
     n_clusters: Int,
     size_clusters: Int[Array, " n_clusters"],
     n_experiments: Int,
+    n_inits_per_experiment: Int,
     num_pca_components: Int,
     init_method: Literal["random_centers", "kmeans++", "random_partition"],
     path_to_output: str,
     *,
-    max_iters: Int = 1000,
+    max_iter: Int = 1000,
     seed: Int = 0,
     overwrite: Bool = False,
 ) -> Dict[str, Float[Array, "n_dims n_noise_variances n_experiments"]]:
@@ -152,16 +179,17 @@ def run_general_experiments(
         - dimension_vals: Array of dimensions to test.
         - noise_variance_vals: Array of noise variances to test.
         - prior_variance: Prior variance for the data generation.
-        - size_cluster1: Size of the first cluster.
-        - size_cluster2: Size of the second cluster.
+        - n_clusters: Number of clusters to use in the experiments.
+        - size_clusters: Array of sizes of cluster sizes.
         - n_experiments: Number of experiments to run for each setting.
+        - n_inits_per_experiment: Number of initializations per experiment.
         - num_pca_components: Number of PCA components to use.
         - init_method: Initialization method for k-means.
             One of 'random_centers', 'kmeans++', or 'random_partition'.
         - path_to_output: Path to save the results.
-        - max_iters: Maximum number of iterations for k-means.
+        - max_iter: Maximum number of iterations for k-means.
         - seed: Random seed for reproducibility.
-        - overwrite: Whether to overwrite existing output files.
+        - overwrite: Whether to overwrite existing output fbests.
     **Returns:**
         - results: Dictionary containing the results of the experiments.
         The results are the NMI vs the true labels, and loss values for each experiment.
@@ -173,7 +201,7 @@ def run_general_experiments(
     assert jnp.all(size_clusters > 0)
     assert jnp.all(n_experiments > 0)
     assert jnp.all(num_pca_components > 0)
-    assert jnp.all(max_iters > 0)
+    assert jnp.all(max_iter > 0)
 
     assert init_method in [
         "random_centers",
@@ -220,9 +248,10 @@ def run_general_experiments(
         "n_clusters": n_clusters,
         "size_clusters": size_clusters,
         "n_experiments": n_experiments,
+        "n_inits_per_experiment": n_inits_per_experiment,
         "num_pca_components": num_pca_components,
         "init_method": init_method,
-        "max_iters": max_iters,
+        "max_iter": max_iter,
         # run information
         "i": 0,
         "j": 0,
@@ -248,8 +277,9 @@ def run_general_experiments(
                     dimension=dimension_vals[i],
                     num_pca_components=num_pca_components,
                     init_method=init_method,
-                    var_prior=prior_variance,
-                    max_iters=max_iters,
+                    n_init=n_inits_per_experiment,
+                    prior_variance=prior_variance,
+                    max_iter=max_iter,
                 )
 
                 results["nmi_kmeans"][i, j, k] = experiment_result["nmi"][0]
@@ -274,3 +304,55 @@ def run_general_experiments(
             logging.info(f"Saved preliminary results to {path_to_output}")
     logging.info("Finished running all experiments.")
     return results
+
+
+def main(config, path_to_output: str, overwrite: bool = False) -> int:
+    run_general_experiments(
+        dimension_vals=config["dimension_values"],
+        noise_variance_vals=config["noise_variance_vals"],
+        prior_variance=config["prior_variance"],
+        n_clusters=config["n_clusters"],
+        size_clusters=config["size_clusters"],
+        n_experiments=config["n_experiments"],
+        n_inits_per_experiment=config["n_inits_per_experiment"],
+        num_pca_components=config["num_pca_components"],
+        init_method="kmeans++",
+        max_iter=config["max_iter"],
+        seed=config["seed"],
+        path_to_output=path_to_output,
+        overwrite=overwrite,
+    )
+    return 0
+
+
+def _parse_config(config: dict) -> Dict:
+    """
+    Parse the configuration file and return the parameters.
+    """
+    for key in DEFAULT_PARAMETERS:
+        if key not in config:
+            config[key] = DEFAULT_PARAMETERS[key]
+
+    return config
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run general k-means experiments.")
+    parser.add_argument(
+        "--output", type=str, required=True, help="Output path for results."
+    )
+    parser.add_argument(
+        "--overwrite", action="store_true", help="Overwrite existing output file."
+    )
+
+    parser.add_argument(
+        "--config_file", type=str, required=True, help="Path to the configuration file."
+    )
+    args = parser.parse_args()
+
+    config = yaml.safe_load(open(args.config_file, "r"))
+    config = _parse_config(config)
+
+    path_to_output = args.output
+    overwrite = args.overwrite
+    main(config, path_to_output, overwrite)

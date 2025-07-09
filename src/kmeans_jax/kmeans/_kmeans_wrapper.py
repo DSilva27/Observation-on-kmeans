@@ -131,7 +131,6 @@ class KMeans(eqx.Module):
         return results
 
 
-@eqx.filter_jit
 def _run_kmeans_from_data(key, data, init_fn, clustering_fn, n_clusters, max_iter):
     init_centroids, _ = init_fn(data, n_clusters, key)
 

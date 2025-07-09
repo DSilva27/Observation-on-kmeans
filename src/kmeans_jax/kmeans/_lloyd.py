@@ -101,4 +101,4 @@ def run_kmeans(
     # losses = jax.lax.slice(losses, (0,), (counter,))
 
     # centroids.block_until_ready()
-    return (centroids, assigments), losses
+    return centroids, assigments, losses, counter

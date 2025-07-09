@@ -73,6 +73,8 @@ def run_single_experiment(
     n_init: Int,
     prior_variance: Float,
     max_iter: Int,
+    *,
+    batch_size: Int = None,
 ) -> Dict[str, Float]:
     key_data, key_pca, key_run = jax.random.split(key, 3)
 
@@ -119,10 +121,16 @@ def run_single_experiment(
     )
 
     # Run k-means
-    lloyd_results = lloyd_kmeans.fit(key_run, data, output="best")
-    hartigan_results = hartigan_kmeans.fit(key_run, data, output="best")
-    bhartigan_results = bhartigan_kmeans.fit(key_run, data, output="best")
-    lloyd_pca_results = lloyd_kmeans.fit(key_run, data_pca, output="best")
+    lloyd_results = lloyd_kmeans.fit(key_run, data, output="best", batch_size=batch_size)
+    hartigan_results = hartigan_kmeans.fit(
+        key_run, data, output="best", batch_size=batch_size
+    )
+    bhartigan_results = bhartigan_kmeans.fit(
+        key_run, data, output="best", batch_size=batch_size
+    )
+    lloyd_pca_results = lloyd_kmeans.fit(
+        key_run, data_pca, output="best", batch_size=batch_size
+    )
 
     # Compute the NMI
     nmi_kmeans = sk_metrics.normalized_mutual_info_score(
@@ -169,6 +177,7 @@ def run_general_experiments(
     init_method: Literal["random", "kmeans++", "random partition"],
     path_to_output: str,
     *,
+    batch_size: Int = None,
     max_iter: Int = 1000,
     seed: Int = 0,
     overwrite: Bool = False,
@@ -280,6 +289,7 @@ def run_general_experiments(
                     n_init=n_inits_per_experiment,
                     prior_variance=prior_variance,
                     max_iter=max_iter,
+                    batch_size=batch_size,
                 )
 
                 results["nmi_kmeans"][i, j, k] = experiment_result["nmi"][0]
@@ -306,7 +316,9 @@ def run_general_experiments(
     return results
 
 
-def main(config, path_to_output: str, overwrite: bool = False) -> int:
+def main(
+    config, path_to_output: str, overwrite: bool = False, batch_size: int = None
+) -> int:
     run_general_experiments(
         dimension_vals=config["dimension_values"],
         noise_variance_vals=config["noise_variance_vals"],
@@ -321,6 +333,7 @@ def main(config, path_to_output: str, overwrite: bool = False) -> int:
         seed=config["seed"],
         path_to_output=path_to_output,
         overwrite=overwrite,
+        batch_size=batch_size,
     )
     return 0
 

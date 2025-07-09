@@ -122,6 +122,7 @@ class KMeans(eqx.Module):
                 "centroids": results["centroids"][best_idx],
                 "labels": results["labels"][best_idx],
                 "loss": results["loss"][best_idx],
+                "n_iter": results["n_iter"][best_idx],
             }
         elif output == "all":
             pass
@@ -134,10 +135,11 @@ class KMeans(eqx.Module):
 def _run_kmeans_from_data(key, data, init_fn, clustering_fn, n_clusters, max_iter):
     init_centroids, _ = init_fn(data, n_clusters, key)
 
-    (centroids, labels), losses = clustering_fn(data, init_centroids, max_iter)
+    centroids, labels, losses, counter = clustering_fn(data, init_centroids, max_iter)
 
     return {
         "centroids": centroids,
         "labels": labels,
         "loss": losses,
+        "n_iter": counter,
     }

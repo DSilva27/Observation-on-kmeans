@@ -125,7 +125,7 @@ def run_single_experiment(
         max_iter=max_iter,
         init=init_method,
         algorithm="Mini-batch Hartigan",
-        batch_size=size_clusters.sum() // 2,
+        batch_size=int(size_clusters.sum() // 2),
     )
 
     # Run k-means

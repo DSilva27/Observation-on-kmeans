@@ -5,7 +5,11 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 
-from ._hartigan import run_batched_hartigan_kmeans, run_hartigan_kmeans
+from ._hartigan import (
+    run_batched_hartigan_kmeans,
+    run_hartigan_kmeans,
+    run_minibatch_hartigan_kmeans,
+)
 from ._init_methods import (
     kmeans_init_from_random_partition,
     kmeans_plusplus_init,
@@ -22,6 +26,8 @@ class KMeans(eqx.Module):
     init_function: Callable
     clustering_function: Callable
     n_init: int = 1
+    algorithm_type: Literal["deterministic", "stochastic"]
+    batch_size: int | None = None
 
     def __init__(
         self,
@@ -30,7 +36,10 @@ class KMeans(eqx.Module):
         n_init: int,
         max_iter: int,
         init: Literal["random", "kmeans++", "random partition"],
-        algorithm: Literal["Hartigan", "Batched Hartigan", "Lloyd"],
+        algorithm: Literal[
+            "Hartigan", "Batched Hartigan", "Mini-batch Hartigan", "Lloyd"
+        ],
+        batch_size: int | None = None,
     ):
         """
         KMeans clustering class inspired by the scikit-learn API.
@@ -64,10 +73,27 @@ class KMeans(eqx.Module):
 
         if algorithm == "Hartigan":
             self.clustering_function = run_hartigan_kmeans
+            self.algorithm_type = "deterministic"
+
         elif algorithm == "Batched Hartigan":
             self.clustering_function = run_batched_hartigan_kmeans
+            self.algorithm_type = "deterministic"
+
         elif algorithm == "Lloyd":
             self.clustering_function = run_kmeans
+            self.algorithm_type = "deterministic"
+
+        elif algorithm == "Mini-batch Hartigan":
+            if batch_size is None:
+                raise ValueError("batch_size must be provided for Mini-batch Hartigan")
+            self.clustering_function = (
+                lambda data, init_centroids, key, max_iter: run_minibatch_hartigan_kmeans(
+                    data, init_centroids, key, batch_size, max_iter
+                )
+            )
+            self.algorithm_type = "stochastic"
+            self.batch_size = batch_size
+
         else:
             raise ValueError(f"Unknown clustering method: {algorithm}")
 
@@ -101,19 +127,33 @@ class KMeans(eqx.Module):
         results = kmeans.fit(key_kmeans, data, batch_size=5)
         """
         keys = jax.random.split(key, self.n_init)
-        results = jax.lax.map(
-            lambda x: _run_kmeans_from_data(
-                x,
-                data,
-                self.init_function,
-                self.clustering_function,
-                self.n_clusters,
-                self.max_iter,
-            ),
-            keys,
-            batch_size=batch_size,
-        )
 
+        if self.algorithm_type == "deterministic":
+            results = jax.lax.map(
+                lambda x: _run_deterministic_kmeans(
+                    x,
+                    data,
+                    self.init_function,
+                    self.clustering_function,
+                    self.n_clusters,
+                    self.max_iter,
+                ),
+                keys,
+                batch_size=batch_size,
+            )
+        elif self.algorithm_type == "stochastic":
+            results = jax.lax.map(
+                lambda x: _run_stochastic_kmeans(
+                    x,
+                    data,
+                    self.init_function,
+                    self.clustering_function,
+                    self.n_clusters,
+                    self.max_iter,
+                ),
+                keys,
+                batch_size=batch_size,
+            )
         results["centroids"].block_until_ready()
 
         if output == "best":
@@ -132,10 +172,25 @@ class KMeans(eqx.Module):
         return results
 
 
-def _run_kmeans_from_data(key, data, init_fn, clustering_fn, n_clusters, max_iter):
+def _run_deterministic_kmeans(key, data, init_fn, clustering_fn, n_clusters, max_iter):
     init_centroids, _ = init_fn(data, n_clusters, key)
-
     centroids, labels, losses, counter = clustering_fn(data, init_centroids, max_iter)
+
+    return {
+        "centroids": centroids,
+        "labels": labels,
+        "loss": losses,
+        "n_iter": counter,
+    }
+
+
+def _run_stochastic_kmeans(key, data, init_fn, clustering_fn, n_clusters, max_iter):
+    key_init, key_run = jax.random.split(key)
+
+    init_centroids, _ = init_fn(data, n_clusters, key_init)
+    centroids, labels, losses, counter = clustering_fn(
+        data, init_centroids, key_run, max_iter
+    )
 
     return {
         "centroids": centroids,

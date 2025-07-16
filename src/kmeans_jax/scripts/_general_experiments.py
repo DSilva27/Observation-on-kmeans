@@ -17,7 +17,6 @@ from ..kmeans._common_functions import (
     compute_loss,
     update_centroids,
 )
-from ..svd_utils import principal_component_analysis
 
 
 DEFAULT_PARAMETERS = {
@@ -92,25 +91,25 @@ def run_single_experiment(
     true_loss = compute_loss(data, true_data_averages, true_labels)
 
     # PCA
-    data_pca = principal_component_analysis(
-        key=key_pca, data=data, n_components=num_pca_components, mode="randomized"
-    )
+    # data_pca = principal_component_analysis(
+    #     key=key_pca, data=data, n_components=num_pca_components, mode="randomized"
+    # )
 
-    lloyd_kmeans = KMeans(
-        n_clusters=n_clusters,
-        n_init=n_init,
-        max_iter=max_iter,
-        init=init_method,
-        algorithm="Lloyd",
-    )
+    # lloyd_kmeans = KMeans(
+    #     n_clusters=n_clusters,
+    #     n_init=n_init,
+    #     max_iter=max_iter,
+    #     init=init_method,
+    #     algorithm="Lloyd",
+    # )
 
-    hartigan_kmeans = KMeans(
-        n_clusters=n_clusters,
-        n_init=n_init,
-        max_iter=max_iter,
-        init=init_method,
-        algorithm="Hartigan",
-    )
+    # hartigan_kmeans = KMeans(
+    #     n_clusters=n_clusters,
+    #     n_init=n_init,
+    #     max_iter=max_iter,
+    #     init=init_method,
+    #     algorithm="Hartigan",
+    # )
 
     bhartigan_kmeans = KMeans(
         n_clusters=n_clusters,
@@ -120,45 +119,75 @@ def run_single_experiment(
         algorithm="Batched Hartigan",
     )
 
-    # Run k-means
-    lloyd_results = lloyd_kmeans.fit(key_run, data, output="best", batch_size=batch_size)
-    hartigan_results = hartigan_kmeans.fit(
-        key_run, data, output="best", batch_size=batch_size
+    minibhartigan_kmeans = KMeans(
+        n_clusters=n_clusters,
+        n_init=n_init,
+        max_iter=max_iter,
+        init=init_method,
+        algorithm="Mini-batch Hartigan",
+        batch_size=size_clusters.sum() // 2,
     )
+
+    # Run k-means
+    # lloyd_results = lloyd_kmeans.fit(
+    #     key_run, data, output="best", batch_size=batch_size
+    # )
+    # hartigan_results = hartigan_kmeans.fit(
+    #     key_run, data, output="best", batch_size=batch_size
+    # )
     bhartigan_results = bhartigan_kmeans.fit(
         key_run, data, output="best", batch_size=batch_size
     )
-    lloyd_pca_results = lloyd_kmeans.fit(
-        key_run, data_pca, output="best", batch_size=batch_size
+    # lloyd_pca_results = lloyd_kmeans.fit(
+    #     key_run, data_pca, output="best", batch_size=batch_size
+    # )
+    minibhartigan_results = minibhartigan_kmeans.fit(
+        key_run, data, output="best", batch_size=batch_size
     )
 
     # Compute the NMI
-    nmi_kmeans = sk_metrics.normalized_mutual_info_score(
-        true_labels, lloyd_results["labels"]
-    )
-    nmi_hartigan = sk_metrics.normalized_mutual_info_score(
-        true_labels, hartigan_results["labels"]
-    )
+    # nmi_kmeans = sk_metrics.normalized_mutual_info_score(
+    #     true_labels, lloyd_results["labels"]
+    # )
+    # nmi_hartigan = sk_metrics.normalized_mutual_info_score(
+    #     true_labels, hartigan_results["labels"]
+    # )
+    # nmi_kmeans_pca = sk_metrics.normalized_mutual_info_score(
+    #     true_labels, lloyd_pca_results["labels"]
+    # )
+
     nmi_bhartigan = sk_metrics.normalized_mutual_info_score(
         true_labels, bhartigan_results["labels"]
     )
-    nmi_kmeans_pca = sk_metrics.normalized_mutual_info_score(
-        true_labels, lloyd_pca_results["labels"]
+
+    nmi_minibhartigan = sk_metrics.normalized_mutual_info_score(
+        true_labels, minibhartigan_results["labels"]
     )
 
-    loss_pca = compute_loss(
-        data,
-        update_centroids(data, lloyd_pca_results["labels"], n_clusters),
-        lloyd_pca_results["labels"],
-    )
+    nmi_kmeans = 0.0
+    nmi_kmeans_pca = 0.0
+    nmi_hartigan = 0.0
+
+    # loss_pca = compute_loss(
+    #     data,
+    #     update_centroids(data, lloyd_pca_results["labels"], n_clusters),
+    #     lloyd_pca_results["labels"],
+    # )
 
     results = {
-        "nmi": (nmi_kmeans, nmi_hartigan, nmi_bhartigan, nmi_kmeans_pca),
+        "nmi": (
+            nmi_kmeans,
+            nmi_hartigan,
+            nmi_bhartigan,
+            nmi_minibhartigan,
+            nmi_kmeans_pca,
+        ),
         "loss": (
-            lloyd_results["loss"],
-            hartigan_results["loss"],
+            0.0,  # lloyd_results["loss"],
+            0.0,  # hartigan_results["loss"],
             bhartigan_results["loss"],
-            loss_pca,
+            minibhartigan_results["loss"],
+            0.0,  # loss_pca,
             true_loss,
         ),
     }
@@ -244,10 +273,12 @@ def run_general_experiments(
         "nmi_kmeans": np.zeros(shape_outputs),
         "nmi_hartigan": np.zeros(shape_outputs),
         "nmi_bhartigan": np.zeros(shape_outputs),
+        "nmi_minibhartigan": np.zeros(shape_outputs),
         "nmi_kmeans_pca": np.zeros(shape_outputs),
         "loss_kmeans": np.zeros(shape_outputs),
         "loss_hartigan": np.zeros(shape_outputs),
         "loss_bhartigan": np.zeros(shape_outputs),
+        "loss_minibhartigan": np.zeros(shape_outputs),
         "loss_kmeans_pca": np.zeros(shape_outputs),
         "loss_true_partition": np.zeros(shape_outputs),
         # experiment parameters
@@ -295,12 +326,14 @@ def run_general_experiments(
                 results["nmi_kmeans"][i, j, k] = experiment_result["nmi"][0]
                 results["nmi_hartigan"][i, j, k] = experiment_result["nmi"][1]
                 results["nmi_bhartigan"][i, j, k] = experiment_result["nmi"][2]
-                results["nmi_kmeans_pca"][i, j, k] = experiment_result["nmi"][3]
+                results["nmi_minibhartigan"][i, j, k] = experiment_result["nmi"][3]
+                results["nmi_kmeans_pca"][i, j, k] = experiment_result["nmi"][4]
                 results["loss_kmeans"][i, j, k] = experiment_result["loss"][0]
                 results["loss_hartigan"][i, j, k] = experiment_result["loss"][1]
                 results["loss_bhartigan"][i, j, k] = experiment_result["loss"][2]
-                results["loss_kmeans_pca"][i, j, k] = experiment_result["loss"][3]
-                results["loss_true_partition"][i, j, k] = experiment_result["loss"][4]
+                results["loss_minibhartigan"][i, j, k] = experiment_result["loss"][3]
+                results["loss_kmeans_pca"][i, j, k] = experiment_result["loss"][4]
+                results["loss_true_partition"][i, j, k] = experiment_result["loss"][5]
 
             logging.info("      Done running experiments. Moving to next setting.")
             logging.info("=" * 100)

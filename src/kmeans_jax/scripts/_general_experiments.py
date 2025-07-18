@@ -17,6 +17,7 @@ from ..kmeans._common_functions import (
     compute_loss,
     update_centroids,
 )
+from ..svd_utils import principal_component_analysis
 
 
 DEFAULT_PARAMETERS = {
@@ -91,25 +92,25 @@ def run_single_experiment(
     true_loss = compute_loss(data, true_data_averages, true_labels)
 
     # PCA
-    # data_pca = principal_component_analysis(
-    #     key=key_pca, data=data, n_components=num_pca_components, mode="randomized"
-    # )
+    data_pca = principal_component_analysis(
+        key=key_pca, data=data, n_components=num_pca_components, mode="randomized"
+    )
 
-    # lloyd_kmeans = KMeans(
-    #     n_clusters=n_clusters,
-    #     n_init=n_init,
-    #     max_iter=max_iter,
-    #     init=init_method,
-    #     algorithm="Lloyd",
-    # )
+    lloyd_kmeans = KMeans(
+        n_clusters=n_clusters,
+        n_init=n_init,
+        max_iter=max_iter,
+        init=init_method,
+        algorithm="Lloyd",
+    )
 
-    # hartigan_kmeans = KMeans(
-    #     n_clusters=n_clusters,
-    #     n_init=n_init,
-    #     max_iter=max_iter,
-    #     init=init_method,
-    #     algorithm="Hartigan",
-    # )
+    hartigan_kmeans = KMeans(
+        n_clusters=n_clusters,
+        n_init=n_init,
+        max_iter=max_iter,
+        init=init_method,
+        algorithm="Hartigan",
+    )
 
     bhartigan_kmeans = KMeans(
         n_clusters=n_clusters,
@@ -129,32 +130,30 @@ def run_single_experiment(
     )
 
     # Run k-means
-    # lloyd_results = lloyd_kmeans.fit(
-    #     key_run, data, output="best", batch_size=batch_size
-    # )
-    # hartigan_results = hartigan_kmeans.fit(
-    #     key_run, data, output="best", batch_size=batch_size
-    # )
+    lloyd_results = lloyd_kmeans.fit(key_run, data, output="best", batch_size=batch_size)
+    hartigan_results = hartigan_kmeans.fit(
+        key_run, data, output="best", batch_size=batch_size
+    )
     bhartigan_results = bhartigan_kmeans.fit(
         key_run, data, output="best", batch_size=batch_size
     )
-    # lloyd_pca_results = lloyd_kmeans.fit(
-    #     key_run, data_pca, output="best", batch_size=batch_size
-    # )
+    lloyd_pca_results = lloyd_kmeans.fit(
+        key_run, data_pca, output="best", batch_size=batch_size
+    )
     minibhartigan_results = minibhartigan_kmeans.fit(
         key_run, data, output="best", batch_size=batch_size
     )
 
     # Compute the NMI
-    # nmi_kmeans = sk_metrics.normalized_mutual_info_score(
-    #     true_labels, lloyd_results["labels"]
-    # )
-    # nmi_hartigan = sk_metrics.normalized_mutual_info_score(
-    #     true_labels, hartigan_results["labels"]
-    # )
-    # nmi_kmeans_pca = sk_metrics.normalized_mutual_info_score(
-    #     true_labels, lloyd_pca_results["labels"]
-    # )
+    nmi_kmeans = sk_metrics.normalized_mutual_info_score(
+        true_labels, lloyd_results["labels"]
+    )
+    nmi_hartigan = sk_metrics.normalized_mutual_info_score(
+        true_labels, hartigan_results["labels"]
+    )
+    nmi_kmeans_pca = sk_metrics.normalized_mutual_info_score(
+        true_labels, lloyd_pca_results["labels"]
+    )
 
     nmi_bhartigan = sk_metrics.normalized_mutual_info_score(
         true_labels, bhartigan_results["labels"]
@@ -164,15 +163,11 @@ def run_single_experiment(
         true_labels, minibhartigan_results["labels"]
     )
 
-    nmi_kmeans = 0.0
-    nmi_kmeans_pca = 0.0
-    nmi_hartigan = 0.0
-
-    # loss_pca = compute_loss(
-    #     data,
-    #     update_centroids(data, lloyd_pca_results["labels"], n_clusters),
-    #     lloyd_pca_results["labels"],
-    # )
+    loss_pca = compute_loss(
+        data,
+        update_centroids(data, lloyd_pca_results["labels"], n_clusters),
+        lloyd_pca_results["labels"],
+    )
 
     results = {
         "nmi": (
@@ -183,11 +178,11 @@ def run_single_experiment(
             nmi_kmeans_pca,
         ),
         "loss": (
-            0.0,  # lloyd_results["loss"],
-            0.0,  # hartigan_results["loss"],
+            lloyd_results["loss"],
+            hartigan_results["loss"],
             bhartigan_results["loss"],
             minibhartigan_results["loss"],
-            0.0,  # loss_pca,
+            loss_pca,
             true_loss,
         ),
     }

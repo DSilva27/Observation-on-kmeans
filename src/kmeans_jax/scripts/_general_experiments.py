@@ -380,18 +380,18 @@ def _run_general_experiments_continue(
     else:
         results = dict(jnp.load(path_to_output, allow_pickle=True))
 
-    dimension_vals = results["dimension_vals"]
-    noise_variance_vals = results["noise_variance_vals"]
-    prior_variance = results["prior_variance"]
-    n_clusters = results["n_clusters"]
-    size_clusters = results["size_clusters"]
+    dimension_vals = jnp.array(results["dimension_vals"])
+    noise_variance_vals = jnp.array(results["noise_variance_vals"])
+    prior_variance = float(results["prior_variance"])
+    n_clusters = int(results["n_clusters"])
+    size_clusters = jnp.array(results["size_clusters"], dtype=jnp.int32)
     n_experiments = results["n_experiments"]
-    n_inits_per_experiment = results["n_inits_per_experiment"]
-    num_pca_components = results["num_pca_components"]
-    init_method = results["init_method"]
+    n_inits_per_experiment = int(results["n_inits_per_experiment"])
+    num_pca_components = int(results["num_pca_components"])
+    init_method = str(results["init_method"])
 
-    curr_i = results["i"]
-    curr_j = results["j"]
+    curr_i = int(results["i"])
+    curr_j = int(results["j"])
 
     key = jax.random.key(seed)
 

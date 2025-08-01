@@ -32,13 +32,13 @@ def _kmeans_step(
     Float[Array, " max_steps"],
     Int,
 ]:
-    centroids, old_cluster_assignments, _, losses, counter = carry
+    centroids, old_cluster_assignments, _, loss, counter = carry
 
+    centroids = update_centroids(data, old_cluster_assignments, centroids.shape[0])
     cluster_assignments = assign_clusters(centroids, data)
-    centroids = update_centroids(data, cluster_assignments, centroids.shape[0])
-    # losses = losses.at[counter].set(compute_loss(data, centroids, cluster_assignments))
-    losses = compute_loss(data, centroids, cluster_assignments)
-    return (centroids, cluster_assignments, old_cluster_assignments, losses, counter + 1)
+    # loss = loss.at[counter].set(compute_loss(data, centroids, cluster_assignments))
+    loss = compute_loss(data, centroids, cluster_assignments)
+    return (centroids, cluster_assignments, old_cluster_assignments, loss, counter + 1)
 
 
 def _kmeans_stop_condition(
@@ -51,7 +51,7 @@ def _kmeans_stop_condition(
     ],
     max_steps: Int,
 ) -> Bool:
-    _, cluster_assignments, old_cluster_assignments, losses, counter = carry
+    _, cluster_assignments, old_cluster_assignments, loss, counter = carry
 
     cond1 = jnp.any(cluster_assignments != old_cluster_assignments)
     cond2 = counter <= max_steps
@@ -77,10 +77,11 @@ def run_kmeans(
     **Returns:**
         centroids: The final centroids, shape (K, d).
         cluster_assignments: The cluster assignments for each data point, shape (n,).
-        losses: The loss function value at each iteration.
+        loss: The loss function value at each iteration.
+        counter: The number of iterations performed.
     """
 
-    losses = 0.0  # jnp.zeros(max_iters)
+    loss = 0.0  # jnp.zeros(max_iters)
     counter = 0
     # dummy init
     init_assignments = assign_clusters(init_centroids, data)
@@ -88,7 +89,7 @@ def run_kmeans(
     cond_fun = jax.jit(partial(_kmeans_stop_condition, max_steps=max_iters))
 
     # makes sure the initial assignment does not trigger the stop condition
-    carry = (init_centroids, init_assignments, init_assignments - 1, losses, counter)
+    carry = (init_centroids, init_assignments, init_assignments - 1, loss, counter)
 
     @jax.jit
     def run_kmeans_inner(carry):
@@ -96,9 +97,9 @@ def run_kmeans(
             cond_fun=cond_fun, body_fun=lambda c: _kmeans_step(c, data), init_val=carry
         )
 
-    centroids, assigments, _, losses, counter = run_kmeans_inner(carry)
-    # losses = losses[:counter]
-    # losses = jax.lax.slice(losses, (0,), (counter,))
+    centroids, assigments, _, loss, counter = run_kmeans_inner(carry)
+    # loss = loss[:counter]
+    # loss = jax.lax.slice(loss, (0,), (counter,))
 
     # centroids.block_until_ready()
-    return centroids, assigments, losses, counter
+    return centroids, assigments, loss, counter

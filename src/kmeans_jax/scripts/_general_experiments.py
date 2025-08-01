@@ -189,7 +189,7 @@ def run_single_experiment(
     return results
 
 
-def run_general_experiments(
+def _run_general_experiments_from_scratch(
     dimension_vals: Int[Array, " n_dims"],
     noise_variance_vals: Float[Array, " n_noise_variances"],
     prior_variance: Float,
@@ -344,8 +344,185 @@ def run_general_experiments(
     return results
 
 
+def _run_general_experiments_continue(
+    path_to_output: str,
+    *,
+    batch_size: Int = None,
+    max_iter: Int = 1000,
+    seed: Int = 0,
+) -> Dict[str, Float[Array, "n_dims n_noise_variances n_experiments"]]:
+    """
+    Run k-means in practice experiments.
+    **Arguments:**
+        - dimension_vals: Array of dimensions to test.
+        - noise_variance_vals: Array of noise variances to test.
+        - prior_variance: Prior variance for the data generation.
+        - n_clusters: Number of clusters to use in the experiments.
+        - size_clusters: Array of sizes of cluster sizes.
+        - n_experiments: Number of experiments to run for each setting.
+        - n_inits_per_experiment: Number of initializations per experiment.
+        - num_pca_components: Number of PCA components to use.
+        - init_method: Initialization method for k-means.
+            One of 'random', 'kmeans++', or 'random partition'.
+        - path_to_output: Path to save the results.
+        - max_iter: Maximum number of iterations for k-means.
+        - seed: Random seed for reproducibility.
+        - overwrite: Whether to overwrite existing output fbests.
+    **Returns:**
+        - results: Dictionary containing the results of the experiments.
+        The results are the NMI vs the true labels, and loss values for each experiment.
+    """
+    if not os.path.exists(path_to_output):
+        raise ValueError(
+            f"Output file {path_to_output} does not exist. Cannot continue experiments."
+        )
+
+    else:
+        results = jnp.load(path_to_output, allow_pickle=True)
+
+    dimension_vals = results["dimension_vals"]
+    noise_variance_vals = results["noise_variance_vals"]
+    prior_variance = results["prior_variance"]
+    n_clusters = results["n_clusters"]
+    size_clusters = results["size_clusters"]
+    n_experiments = results["n_experiments"]
+    n_inits_per_experiment = results["n_inits_per_experiment"]
+    num_pca_components = results["num_pca_components"]
+    init_method = results["init_method"]
+
+    curr_i = results["i"]
+    curr_j = results["j"]
+
+    key = jax.random.key(seed)
+
+    logging.info(f"Continuing experiments from i = {curr_i}, j = {curr_j}")
+    logging.info("=" * 100)
+
+    for i in tqdm(range(curr_i, len(dimension_vals))):
+        results["i"] = i
+        logging.info(f"  Running for d = {dimension_vals[i]}")
+        for j in range(curr_j, len(noise_variance_vals)):
+            results["j"] = j
+            logging.info(
+                f"    Running for noise_variance_vals = {noise_variance_vals[j]}"
+            )
+
+            logging.info("      Running experiments")
+            for k in range(n_experiments):
+                key, subkey = jax.random.split(key)
+                experiment_result = run_single_experiment(
+                    key=subkey,
+                    noise_variance=noise_variance_vals[j],
+                    n_clusters=n_clusters,
+                    size_clusters=size_clusters,
+                    dimension=dimension_vals[i],
+                    num_pca_components=num_pca_components,
+                    init_method=init_method,
+                    n_init=n_inits_per_experiment,
+                    prior_variance=prior_variance,
+                    max_iter=max_iter,
+                    batch_size=batch_size,
+                )
+
+                results["nmi_kmeans"][i, j, k] = experiment_result["nmi"][0]
+                results["nmi_hartigan"][i, j, k] = experiment_result["nmi"][1]
+                results["nmi_bhartigan"][i, j, k] = experiment_result["nmi"][2]
+                results["nmi_minibhartigan"][i, j, k] = experiment_result["nmi"][3]
+                results["nmi_kmeans_pca"][i, j, k] = experiment_result["nmi"][4]
+                results["loss_kmeans"][i, j, k] = experiment_result["loss"][0]
+                results["loss_hartigan"][i, j, k] = experiment_result["loss"][1]
+                results["loss_bhartigan"][i, j, k] = experiment_result["loss"][2]
+                results["loss_minibhartigan"][i, j, k] = experiment_result["loss"][3]
+                results["loss_kmeans_pca"][i, j, k] = experiment_result["loss"][4]
+                results["loss_true_partition"][i, j, k] = experiment_result["loss"][5]
+
+            logging.info("      Done running experiments. Moving to next setting.")
+            logging.info("=" * 100)
+            jax.clear_caches()
+
+            jnp.savez(
+                path_to_output,
+                **results,
+            )
+
+            logging.info(f"Saved preliminary results to {path_to_output}")
+    logging.info("Finished running all experiments.")
+    return results
+
+
+def run_general_experiments(
+    dimension_vals: Int[Array, " n_dims"],
+    noise_variance_vals: Float[Array, " n_noise_variances"],
+    prior_variance: Float,
+    n_clusters: Int,
+    size_clusters: Int[Array, " n_clusters"],
+    n_experiments: Int,
+    n_inits_per_experiment: Int,
+    num_pca_components: Int,
+    init_method: Literal["random", "kmeans++", "random partition"],
+    path_to_output: str,
+    *,
+    batch_size: Int = None,
+    max_iter: Int = 1000,
+    seed: Int = 0,
+    overwrite: Bool = False,
+    continue_experiments: Bool = False,
+) -> Dict[str, Float[Array, "n_dims n_noise_variances n_experiments"]]:
+    """
+    Run k-means in practice experiments.
+    **Arguments:**
+        - dimension_vals: Array of dimensions to test.
+        - noise_variance_vals: Array of noise variances to test.
+        - prior_variance: Prior variance for the data generation.
+        - n_clusters: Number of clusters to use in the experiments.
+        - size_clusters: Array of sizes of cluster sizes.
+        - n_experiments: Number of experiments to run for each setting.
+        - n_inits_per_experiment: Number of initializations per experiment.
+        - num_pca_components: Number of PCA components to use.
+        - init_method: Initialization method for k-means.
+            One of 'random', 'kmeans++', or 'random partition'.
+        - path_to_output: Path to save the results.
+        - max_iter: Maximum number of iterations for k-means.
+        - seed: Random seed for reproducibility.
+        - overwrite: Whether to overwrite existing output files.
+        - continue_experiments: Whether to continue from existing
+            results or start from scratch.
+    **Returns:**
+        - results: Dictionary containing the results of the experiments.
+        The results are the NMI vs the true labels, and loss values for each experiment.
+    """
+    if continue_experiments:
+        return _run_general_experiments_continue(
+            path_to_output=path_to_output,
+            batch_size=batch_size,
+            max_iter=max_iter,
+            seed=seed,
+        )
+    else:
+        return _run_general_experiments_from_scratch(
+            dimension_vals=dimension_vals,
+            noise_variance_vals=noise_variance_vals,
+            prior_variance=prior_variance,
+            n_clusters=n_clusters,
+            size_clusters=size_clusters,
+            n_experiments=n_experiments,
+            n_inits_per_experiment=n_inits_per_experiment,
+            num_pca_components=num_pca_components,
+            init_method=init_method,
+            path_to_output=path_to_output,
+            batch_size=batch_size,
+            max_iter=max_iter,
+            seed=seed,
+            overwrite=overwrite,
+        )
+
+
 def main(
-    config, path_to_output: str, overwrite: bool = False, batch_size: int = None
+    config,
+    path_to_output: str,
+    overwrite: bool = False,
+    batch_size: int = None,
+    continue_from_previous: bool = False,
 ) -> int:
     run_general_experiments(
         dimension_vals=config["dimension_values"],
@@ -362,6 +539,7 @@ def main(
         path_to_output=path_to_output,
         overwrite=overwrite,
         batch_size=batch_size,
+        continue_experiments=continue_from_previous,
     )
     return 0
 
@@ -389,6 +567,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config_file", type=str, required=True, help="Path to the configuration file."
     )
+    parser.add_argument(
+        "--continue",
+        dest="continue_from_previous",
+        action="store_true",
+        help="Continue from last run",
+    )
     args = parser.parse_args()
 
     config = yaml.safe_load(open(args.config_file, "r"))
@@ -396,4 +580,4 @@ if __name__ == "__main__":
 
     path_to_output = args.output
     overwrite = args.overwrite
-    main(config, path_to_output, overwrite)
+    main(config, path_to_output, overwrite, args.continue_from_previous)

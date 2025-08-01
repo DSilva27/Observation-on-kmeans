@@ -43,6 +43,9 @@ build-backend = "hatchling.build"
 [tool.hatch.version]
 source = "vcs"
 
+[tool.hatch.build.hooks.vcs]
+version-file = "src/kmeans_jax/kmeansjax_version.py"
+
 [tool.hatch.build]
 include = [
   "src/kmeans_jax"
@@ -53,8 +56,6 @@ packages = [
     "src/kmeans_jax",
 ]
 
-[tool.hatch.build.hooks.vcs]
-version-file = "src/kmeans_jax/kmeansjax_version.py"
 
 [tool.ruff]
 extend-include = ["*.ipynb"]

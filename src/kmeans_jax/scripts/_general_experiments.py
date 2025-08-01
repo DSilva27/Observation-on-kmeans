@@ -373,12 +373,12 @@ def _run_general_experiments_continue(
         The results are the NMI vs the true labels, and loss values for each experiment.
     """
     if not os.path.exists(path_to_output):
-        raise ValueError(
+        raise FileNotFoundError(
             f"Output file {path_to_output} does not exist. Cannot continue experiments."
         )
 
     else:
-        results = jnp.load(path_to_output, allow_pickle=True)
+        results = dict(jnp.load(path_to_output, allow_pickle=True))
 
     dimension_vals = results["dimension_vals"]
     noise_variance_vals = results["noise_variance_vals"]

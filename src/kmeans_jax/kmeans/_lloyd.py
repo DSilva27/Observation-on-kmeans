@@ -34,8 +34,8 @@ def _kmeans_step(
 ]:
     centroids, old_cluster_assignments, _, loss, counter = carry
 
-    centroids = update_centroids(data, old_cluster_assignments, centroids.shape[0])
     cluster_assignments = assign_clusters(centroids, data)
+    centroids = update_centroids(data, cluster_assignments, centroids.shape[0])
     # loss = loss.at[counter].set(compute_loss(data, centroids, cluster_assignments))
     loss = compute_loss(data, centroids, cluster_assignments)
     return (centroids, cluster_assignments, old_cluster_assignments, loss, counter + 1)
@@ -85,6 +85,7 @@ def run_kmeans(
     counter = 0
     # dummy init
     init_assignments = assign_clusters(init_centroids, data)
+    init_centroids = update_centroids(data, init_assignments, init_centroids.shape[0])
 
     cond_fun = jax.jit(partial(_kmeans_stop_condition, max_steps=max_iters))
 

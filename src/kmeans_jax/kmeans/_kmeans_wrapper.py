@@ -15,6 +15,7 @@ from ._init_methods import (
     kmeans_plusplus_init,
     kmeans_random_init,
 )
+from ._lederman import run_lederman_kmeans
 from ._lloyd import (
     run_kmeans,
 )
@@ -37,7 +38,7 @@ class KMeans(eqx.Module):
         max_iter: int,
         init: Literal["random", "kmeans++", "random partition"],
         algorithm: Literal[
-            "Hartigan", "Batched Hartigan", "Mini-batch Hartigan", "Lloyd"
+            "Hartigan", "Batched Hartigan", "Mini-batch Hartigan", "Lloyd", "Lederman"
         ],
         batch_size: int | None = None,
     ):
@@ -81,6 +82,10 @@ class KMeans(eqx.Module):
 
         elif algorithm == "Lloyd":
             self.clustering_function = run_kmeans
+            self.algorithm_type = "deterministic"
+
+        elif algorithm == "Lederman":
+            self.clustering_function = run_lederman_kmeans
             self.algorithm_type = "deterministic"
 
         elif algorithm == "Mini-batch Hartigan":

@@ -12,12 +12,6 @@ from ._common_functions import assign_clusters, compute_loss, update_centroids
 
 
 def weight_distance(assignment, cluster_id, cluster_weight, distance):
-    # return jax.lax.cond(
-    #     assignment == cluster_id,
-    #     lambda x: x * cluster_weight / (cluster_weight - 1),
-    #     lambda x: x * cluster_weight / (cluster_weight + 1),
-    #     distance,
-    # )
     return jax.lax.cond(
         assignment == cluster_id,
         lambda x: jax.lax.cond(
@@ -80,12 +74,12 @@ def _hartigan_kmeans_step(
     Float[Array, " max_steps"],
     Int,
 ]:
-    centroids, old_assignments, _, losses, counter = carry
+    centroids, old_assignments, _, loss, counter = carry
 
     assignments, centroids = inner_loop_hartigan(old_assignments.copy(), centroids, data)
-    # losses = losses.at[counter].set(compute_loss(data, centroids, assignments))
-    losses = compute_loss(data, centroids, assignments)
-    return (centroids, assignments, old_assignments, losses, counter + 1)
+    # loss = loss.at[counter].set(compute_loss(data, centroids, assignments))
+    loss = compute_loss(data, centroids, assignments)
+    return (centroids, assignments, old_assignments, loss, counter + 1)
 
 
 def _hart_kmeans_stop_condition(
@@ -114,7 +108,7 @@ def run_hartigan_kmeans(
     Tuple[Float[Array, "K d"], Int[Array, " n"]],
     Float[Array, " max_steps"],
 ]:
-    losses = 0.0  # jnp.zeros(max_iters)
+    loss = 0.0  # jnp.zeros(max_iters)
     counter = 0
 
     init_assignments = assign_clusters(init_centroids, data)
@@ -123,7 +117,7 @@ def run_hartigan_kmeans(
     cond_fun = jax.jit(partial(_hart_kmeans_stop_condition, max_steps=max_iters))
 
     # makes sure the initial assignment does not trigger the stop condition
-    carry = (init_centroids, init_assignments, init_assignments - 1, losses, counter)
+    carry = (init_centroids, init_assignments, init_assignments - 1, loss, counter)
 
     @jax.jit
     def run_batched_hartigan_inner(carry):
@@ -133,10 +127,8 @@ def run_hartigan_kmeans(
             init_val=carry,
         )
 
-    centroids, assigments, _, losses, counter = run_batched_hartigan_inner(carry)
-    # losses = losses[:counter]
-    # centroids.block_until_ready()
-    return centroids, assigments, losses, counter
+    centroids, assignments, _, loss, counter = run_batched_hartigan_inner(carry)
+    return centroids, assignments, loss, counter
 
 
 ############################ Batched Hartigan ############################
@@ -157,21 +149,21 @@ def assign_dp_to_cluster_batched_hartigan(
 
 
 def _batched_hartigan_step(carry, data):
-    centroids, old_assignments, old_old_assignments, _, losses, counter = carry
+    centroids, old_assignments, old_old_assignments, _, loss, counter = carry
 
     cluster_populations = jnp.bincount(old_assignments, length=centroids.shape[0])
     assignments = assign_dp_to_cluster_batched_hartigan(
         centroids, old_assignments, cluster_populations, data
     )
     centroids = update_centroids(data, assignments, centroids.shape[0])
-    # losses = losses.at[counter].set(compute_loss(data, centroids, assignments))
-    losses = compute_loss(data, centroids, assignments)
+
+    loss = compute_loss(data, centroids, assignments)
     return (
         centroids,
         assignments,
         old_assignments,
         old_old_assignments,
-        losses,
+        loss,
         counter + 1,
     )
 
@@ -182,23 +174,14 @@ def _batched_hartigan_stop_condition(carry, max_steps):
         assignments,
         old_assignments,
         old_old_assignments,
-        losses,
+        loss,
         counter,
     ) = carry
-
-    # loss_prev_prev = jax.lax.cond(
-    #     counter > 2, lambda x: losses[x - 3], lambda x: jnp.inf, counter
-    # )
-    # loss_prev = losses[counter - 2]
-    # loss = losses[counter - 1]
-    # loss_diff_1 = jnp.abs(loss - loss_prev)
-    # loss_diff_2 = jnp.abs(loss_prev - loss_prev_prev)
 
     cond1 = jnp.any(assignments != old_assignments)
     cond2 = jnp.any(assignments != old_old_assignments)
     cond3 = counter <= max_steps
-    # cond4 = jnp.all(jnp.bincount(assignments, length=centroids.shape[0]) > 1)
-    return cond1 & cond2 & cond3  # & cond4
+    return cond1 & cond2 & cond3
 
 
 def run_batched_hartigan_kmeans(
@@ -209,7 +192,7 @@ def run_batched_hartigan_kmeans(
     Tuple[Float[Array, "K d"], Int[Array, " n"]],
     Float[Array, " max_steps"],
 ]:
-    losses = 0.0  # jnp.zeros(max_iters)
+    loss = 0.0  # jnp.zeros(max_iters)
     counter = 0
 
     init_assignments = assign_clusters(init_centroids, data)
@@ -223,7 +206,7 @@ def run_batched_hartigan_kmeans(
         init_assignments,
         init_assignments - 1,
         init_assignments - 2,
-        losses,
+        loss,
         counter,
     )
 
@@ -235,15 +218,13 @@ def run_batched_hartigan_kmeans(
             init_val=carry,
         )
 
-    centroids, assigments, _, _, losses, counter = run_batched_hartigan_inner(carry)
-    # losses = losses[:counter]
-    # centroids.block_until_ready()
-    return centroids, assigments, losses, counter
+    centroids, assignments, _, _, loss, counter = run_batched_hartigan_inner(carry)
+    return centroids, assignments, loss, counter
 
 
 ########################## Mini-batch Hartigan ##########################
 def _minibatch_hartigan_step(carry, data, batch_size):
-    centroids, old_assignments, _, losses, counter, key = carry
+    centroids, old_assignments, _, loss, counter, key = carry
 
     key, subkey = jax.random.split(key)
 
@@ -257,28 +238,20 @@ def _minibatch_hartigan_step(carry, data, batch_size):
     assignments = old_assignments.at[subset_idx].set(assignments)
 
     centroids = update_centroids(data, assignments, centroids.shape[0])
-    # losses = losses.at[counter].set(compute_loss(data, centroids, assignments))
-    losses = compute_loss(data, centroids, assignments)
-    return (centroids, assignments, old_assignments, losses, counter + 1, key)
+
+    loss = compute_loss(data, centroids, assignments)
+    return (centroids, assignments, old_assignments, loss, counter + 1, key)
 
 
 def _minibatch_hartigan_stop_condition(carry, max_steps):
     (
-        centroids,
+        _,
         assignments,
         old_assignments,
-        losses,
+        _,
         counter,
         _,
     ) = carry
-
-    # loss_prev_prev = jax.lax.cond(
-    #     counter > 2, lambda x: losses[x - 3], lambda x: jnp.inf, counter
-    # )
-    # loss_prev = losses[counter - 2]
-    # loss = losses[counter - 1]
-    # loss_diff_1 = jnp.abs(loss - loss_prev)
-    # loss_diff_2 = jnp.abs(loss_prev - loss_prev_prev)
 
     cond1 = jnp.any(assignments != old_assignments)
     cond3 = counter <= max_steps
@@ -296,7 +269,7 @@ def run_minibatch_hartigan_kmeans(
     Tuple[Float[Array, "K d"], Int[Array, " n"]],
     Float[Array, " max_steps"],
 ]:
-    losses = 0.0  # jnp.zeros(max_iters)
+    loss = 0.0
     counter = 0
 
     init_assignments = assign_clusters(init_centroids, data)
@@ -308,7 +281,7 @@ def run_minibatch_hartigan_kmeans(
         init_centroids,
         init_assignments,
         init_assignments - 1,
-        losses,
+        loss,
         counter,
         key,
     )
@@ -321,7 +294,5 @@ def run_minibatch_hartigan_kmeans(
             init_val=carry,
         )
 
-    centroids, assigments, _, losses, counter, _ = run_minibatch_hartigan_inner(carry)
-    # losses = losses[:counter]
-    # centroids.block_until_ready()
-    return centroids, assigments, losses, counter
+    centroids, assignments, _, loss, counter, _ = run_minibatch_hartigan_inner(carry)
+    return centroids, assignments, loss, counter

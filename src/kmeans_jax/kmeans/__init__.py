@@ -14,6 +14,7 @@ from ._init_methods import (
     kmeans_random_init as kmeans_random_init,
 )
 from ._kmeans_wrapper import KMeans as KMeans
+from ._lederman import run_lederman_kmeans as run_lederman_kmeans
 from ._lloyd import (
     run_kmeans as run_kmeans,
 )

@@ -109,24 +109,26 @@ def run_single_experiment(
         )
 
     # Regular k-means
-    (_, labels), losses = run_kmeans(data, init_centroids, max_iters=max_iters)
-    nmi_kmeans = sk_metrics.normalized_mutual_info_score(true_labels, labels)
+    _, labels_lloyd, loss_lloyd, _ = run_kmeans(data, init_centroids, max_iters=max_iters)
+    nmi_kmeans = sk_metrics.normalized_mutual_info_score(true_labels, labels_lloyd)
 
     # Hartigan k-means
-    (_, labels_hartigan), losses_hartigan = run_hartigan_kmeans(
+    _, labels_hartigan, loss_hartigan, _ = run_hartigan_kmeans(
         data, init_centroids, max_iters=max_iters
     )
     nmi_hartigan = sk_metrics.normalized_mutual_info_score(true_labels, labels_hartigan)
 
     # Batched Hartigan k-means
-    (_, labels_bhartigan), losses_bhartigan = run_batched_hartigan_kmeans(
+    _, labels_bhartigan, loss_bhartigan, _ = run_batched_hartigan_kmeans(
         data, init_centroids, max_iters=max_iters
     )
     nmi_bhartigan = sk_metrics.normalized_mutual_info_score(true_labels, labels_bhartigan)
 
     # print(losses.shape)
     # PCA + k-means
-    (_, labels_pca), _ = run_kmeans(data_pca, init_centroids_pca, max_iters=max_iters)
+    _, labels_pca, loss_pca, _ = run_kmeans(
+        data_pca, init_centroids_pca, max_iters=max_iters
+    )
     nmi_kmeans_pca = sk_metrics.normalized_mutual_info_score(true_labels, labels_pca)
     loss_pca = compute_loss(data, update_centroids(data, labels_pca, 2), labels_pca)
 
@@ -139,9 +141,9 @@ def run_single_experiment(
     results = {
         "nmi": (nmi_kmeans, nmi_hartigan, nmi_bhartigan, nmi_kmeans_pca, nmi_split_pca),
         "loss": (
-            losses,
-            losses_hartigan,
-            losses_bhartigan,
+            loss_lloyd,
+            loss_hartigan,
+            loss_bhartigan,
             loss_pca,
             loss_pca_split,
             true_loss,

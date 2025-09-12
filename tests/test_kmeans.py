@@ -6,18 +6,16 @@ import pytest
 from kmeans_jax.kmeans import kmeans_random_init, run_kmeans
 
 
-def _update_assignments(data, centroids):
-    distances = jnp.linalg.norm(data[:, None] - centroids[None, :], axis=-1)
-    return jnp.argmin(distances, axis=1)
-
-
-def _update_centroids(data, assignments, centroids):
-    for i in range(centroids.shape[0]):
-        centroids[i] = jnp.mean(data[assignments == i], axis=0)
-    return centroids
-
-
 def lloyd_kmeans_numpy(data, init_centroids, max_iters=1000):
+    def _update_assignments(data, centroids):
+        distances = jnp.linalg.norm(data[:, None] - centroids[None, :], axis=-1)
+        return jnp.argmin(distances, axis=1)
+
+    def _update_centroids(data, assignments, centroids):
+        for i in range(centroids.shape[0]):
+            centroids[i] = jnp.mean(data[assignments == i], axis=0)
+        return centroids
+
     data = np.asarray(data)
     init_centroids = np.asarray(init_centroids)
 

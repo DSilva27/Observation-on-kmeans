@@ -2,11 +2,10 @@ from functools import partial
 from typing import Tuple
 
 import jax
-from jaxtyping import Array, Float, Int, PRNGKeyArray
 
-
-jax.config.update("jax_enable_x64", True)
+# jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
+from jaxtyping import Array, Float, Int, PRNGKeyArray
 
 from ._common_functions import update_centroids
 

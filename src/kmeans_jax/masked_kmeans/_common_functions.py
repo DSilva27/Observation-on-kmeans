@@ -10,6 +10,7 @@ from jaxtyping import Array, Float, Int
 @jax.jit
 def compute_loss(
     data: Float[Array, "n d"],
+    masks: Int[Array, "n d"],
     centroids: Float[Array, "K d"],
     cluster_assignments: Int[Array, " n"],
 ) -> Float:
@@ -23,12 +24,12 @@ def compute_loss(
     **Returns:**
         loss: The loss function value.
     """
-    return jnp.sum(jnp.abs(data - centroids[cluster_assignments]) ** 2)
+    return jnp.sum(jnp.abs(data - masks * centroids[cluster_assignments]) ** 2)
 
 
 @jax.jit
 def assign_clusters(
-    centroids: Float[Array, "K d"], data: Float[Array, "n d"]
+    centroids: Float[Array, "K d"], data: Float[Array, "n d"], masks: Int[Array, "n d"]
 ) -> Int[Array, " n"]:
     """
     Assign each data point to the nearest centroid.
@@ -39,13 +40,18 @@ def assign_clusters(
     **Returns:**
         cluster_assignments: The cluster assignments for each data point, shape (n,).
     """
-    distances = jnp.linalg.norm(data[:, None, :] - centroids[None, :, :], axis=-1)
+    distances = jnp.linalg.norm(
+        data[:, None, :] - masks[:, None, :] * centroids[None, :, :], axis=-1
+    )
     return jnp.argmin(distances, axis=1)
 
 
-@partial(jax.jit, static_argnums=(2,))
+@partial(jax.jit, static_argnums=(3,))
 def update_centroids(
-    data: Float[Array, "n d"], cluster_assignments: Int[Array, " n"], num_clusters: Int
+    data: Float[Array, "n d"],
+    masks: Int[Array, "n d"],
+    cluster_assignments: Int[Array, " n"],
+    num_clusters: Int,
 ) -> Float[Array, "K d"]:
     """
     Update the centroids of the clusters, given the data and cluster assignments.
@@ -58,13 +64,22 @@ def update_centroids(
         centroids: The updated centroids, shape (K, d).
     """
 
-    def compute_centroid(cluster):
+    masked_data = data * masks
+
+    def _compute_centroid(cluster):
         num = jnp.sum(
-            data,
+            masked_data,
             axis=0,
             where=jnp.where(cluster_assignments == cluster, True, False)[:, None],
         )
-        den = jnp.sum(jnp.where(cluster_assignments == cluster, True, False)) + 1e-16
-        return num / den
+        den = jnp.sum(
+            masks,
+            axis=0,
+            where=jnp.where(cluster_assignments == cluster, True, False)[:, None],
+        )
+        return jnp.where(jnp.isclose(den, 0.0), 0.0, num / den)
 
-    return jax.vmap(compute_centroid)(jnp.arange(num_clusters))
+    return jax.vmap(_compute_centroid)(jnp.arange(num_clusters))
+
+
+# sum_i A_i x_i / (sum_i A_i)

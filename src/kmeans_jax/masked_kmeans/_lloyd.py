@@ -24,6 +24,7 @@ def _kmeans_step(
         Int,
     ],
     data: Float[Array, "n d"],
+    masks: Int[Array, "n d"],
 ) -> Tuple[
     Float[Array, "K d"],
     Int[Array, " n"],
@@ -33,10 +34,10 @@ def _kmeans_step(
 ]:
     centroids, old_cluster_assignments, _, loss, counter = carry
 
-    cluster_assignments = assign_clusters(centroids, data)
-    centroids = update_centroids(data, cluster_assignments, centroids.shape[0])
+    cluster_assignments = assign_clusters(centroids, data, masks)
+    centroids = update_centroids(data, masks, cluster_assignments, centroids.shape[0])
     # loss = loss.at[counter].set(compute_loss(data, centroids, cluster_assignments))
-    loss = compute_loss(data, centroids, cluster_assignments)
+    loss = compute_loss(data, masks, centroids, cluster_assignments)
     return (centroids, cluster_assignments, old_cluster_assignments, loss, counter + 1)
 
 
@@ -58,8 +59,9 @@ def _kmeans_stop_condition(
     return cond1 & cond2
 
 
-def run_kmeans(
+def run_lloyd_mask_operators(
     data: Float[Array, "n d"],
+    masks: Int[Array, "n d"],
     init_centroids: Float[Array, "K d"],
     max_iters: Int = 1000,
 ) -> Tuple[
@@ -83,8 +85,10 @@ def run_kmeans(
     loss = 0.0  # jnp.zeros(max_iters)
     counter = 0
     # dummy init
-    init_assignments = assign_clusters(init_centroids, data)
-    init_centroids = update_centroids(data, init_assignments, init_centroids.shape[0])
+    init_assignments = assign_clusters(init_centroids, data, masks)
+    init_centroids = update_centroids(
+        data, masks, init_assignments, init_centroids.shape[0]
+    )
 
     cond_fun = jax.jit(partial(_kmeans_stop_condition, max_steps=max_iters))
 
@@ -94,7 +98,9 @@ def run_kmeans(
     @jax.jit
     def run_kmeans_inner(carry):
         return jax.lax.while_loop(
-            cond_fun=cond_fun, body_fun=lambda c: _kmeans_step(c, data), init_val=carry
+            cond_fun=cond_fun,
+            body_fun=lambda c: _kmeans_step(c, data, masks),
+            init_val=carry,
         )
 
     centroids, assigments, _, loss, counter = run_kmeans_inner(carry)

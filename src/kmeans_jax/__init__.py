@@ -3,6 +3,7 @@ from . import (
     scripts as scripts,
     theory_experiments as theory_experiments,
 )
+from .EM import ExpMax as ExpMax
 from .kmeans import KMeans as KMeans
 from .kmeansjax_version import __version__
 from .svd_utils import (

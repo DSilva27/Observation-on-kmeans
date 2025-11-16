@@ -202,7 +202,8 @@ def run_batched_hartigan_kmeans(
 
     init_assignments = assign_clusters(init_centroids, data)
     init_centroids = update_centroids(data, init_assignments, init_centroids.shape[0])
-    # init_centroids, init_assignments, _, _ = run_kmeans(data, init_centroids, max_iters=5)
+    # init_centroids, init_assignments, _, _ =
+    # run_kmeans(data, init_centroids, max_iters=5)
 
     cond_fun = jax.jit(partial(_batched_hartigan_stop_condition, max_steps=max_iters))
 

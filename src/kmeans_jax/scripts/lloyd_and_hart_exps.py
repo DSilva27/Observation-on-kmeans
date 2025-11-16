@@ -178,7 +178,7 @@ def run_single_experiment(
     return results
 
 
-def run_kmeans_in_practice_experiments(
+def run_gmm_hartigan_experiments(
     dimension_vals: Int[Array, " n_dims"],
     noise_variance_vals: Float[Array, " n_noise_variances"],
     prior_variance: Float,

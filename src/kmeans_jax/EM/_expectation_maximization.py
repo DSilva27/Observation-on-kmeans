@@ -8,13 +8,14 @@ import jax.numpy as jnp
 from jax.scipy.special import logsumexp
 from jaxtyping import Array, Bool, Float, Int
 
-from kmeans_jax.kmeans import kmeans_random_init
+from kmeans_jax.kmeans import kmeans_plusplus_init, kmeans_random_init
 
 
 class ExpMax(eqx.Module):
     n_clusters: int
     max_iter: int
     n_init: int = 1
+    init: Literal["random", "minibatch", "kmeans++"]
     init_batch_size: int | None = None
     rtol: float = 1e-5
     atol: float = 1e-5
@@ -25,7 +26,7 @@ class ExpMax(eqx.Module):
         *,
         n_init: int,
         max_iter: int,
-        init: Literal["random", "minibatch"],
+        init: Literal["random", "minibatch", "kmeans++"] = "random",
         init_batch_size: int | None = None,
         rtol: float = 1e-5,
         atol: float = 1e-5,
@@ -47,8 +48,9 @@ class ExpMax(eqx.Module):
         self.n_clusters = n_clusters
         self.max_iter = max_iter
         self.n_init = n_init
+        self.init = init
 
-        if init == "random":
+        if init == "random" or init == "kmeans++":
             self.init_batch_size = None
 
         elif init == "minibatch":
@@ -104,6 +106,7 @@ class ExpMax(eqx.Module):
                 data,
                 var_noise,
                 var_prior,
+                self.init,
                 self.init_batch_size,
                 self.n_clusters,
                 self.max_iter,
@@ -131,10 +134,22 @@ class ExpMax(eqx.Module):
 
 
 def _run_em_for_wrapper(
-    key, data, var_noise, var_prior, init_batch_size, n_clusters, max_iter, atol, rtol
+    key,
+    data,
+    var_noise,
+    var_prior,
+    init_mode,
+    init_batch_size,
+    n_clusters,
+    max_iter,
+    atol,
+    rtol,
 ):
-    if init_batch_size is None:
+    if init_mode == "random":
         init_centroids, _ = kmeans_random_init(data, n_clusters, key)
+    elif init_mode == "kmeans++":
+        init_centroids, _ = kmeans_plusplus_init(data, n_clusters, key)
+
     else:
         key1, key2 = jax.random.split(key)
         batch_idx = jax.random.choice(
@@ -231,6 +246,8 @@ def _take_em_step(
     centroids = compute_em_centroids(data, var_noise, var_prior, responsibilities)
     likelihood = compute_log_likelihood(centroids, data, var_noise)
 
+    # jax.debug.print("likelihood at step {c}: {l}", c=counter, l=likelihood)
+
     return (centroids, likelihood, old_likelihood, counter + 1)
 
 
@@ -250,8 +267,16 @@ def _em_stop_condition(
             rtol=rtol,
         )
     )
+    # jax.debug.print(
+    #     "EM step {c}: likelihood = {l}, old_likelihood = {ol}, close = {cl}",
+    #     c=counter,
+    #     l=likelihood,
+    #     ol=old_likelihood,
+    #     cl=cond1,
+    # )
     cond2 = counter <= max_steps
 
+    # return cond2
     return cond1 & cond2
 
 

@@ -311,7 +311,9 @@ def run_gmm_hartigan_experiments(
                     results[alg]["nmi"][i, j, k] = experiment_result[alg]["nmi"]
                     results[alg]["loss"][i, j, k] = experiment_result[alg]["loss"]
 
-                results["true_partition"]["loss"][i, j, k] = experiment_result["loss"][5]
+                results["true_partition"]["loss"][i, j, k] = experiment_result[
+                    "true_partition"
+                ]["loss"]
 
             logging.info("      Done running experiments. Moving to next setting.")
             logging.info("=" * 100)

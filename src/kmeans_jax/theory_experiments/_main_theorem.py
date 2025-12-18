@@ -12,7 +12,7 @@ import jax.numpy as jnp
 
 from ..kmeans._common_functions import (
     assign_clusters,
-    update_centroids,
+    compute_centroids,
 )
 from ..kmeans._init_methods import kmeans_random_init
 
@@ -116,12 +116,12 @@ def _run_experiment_main_theorem_random(
 
     data = jnp.concatenate([x_C, x_T])
     init_centroids, _ = kmeans_random_init(data, 2, key_init)
-    assignments1 = assign_clusters(init_centroids, data)
-    centroids = update_centroids(data, assignments1, 2)
+    labels1 = assign_clusters(init_centroids, data)
+    centroids = compute_centroids(data, labels1, 2)
 
     idx = jax.random.choice(key_x, data.shape[0])
     x = data[idx]
-    x_assign = assignments1[idx]
+    x_assign = labels1[idx]
     x_not_assign = 1 - x_assign
 
     point_swaps = jnp.sum((x - centroids[x_not_assign]) ** 2) - jnp.sum(

@@ -2,7 +2,7 @@ from functools import partial
 
 import jax
 
-# jax.config.update("jax_enable_x64", True)
+
 import jax.numpy as jnp
 from jaxtyping import Array, Float, Int
 
@@ -12,7 +12,7 @@ def compute_loss(
     data: Float[Array, "n d"],
     masks: Int[Array, "n d"],
     centroids: Float[Array, "K d"],
-    cluster_assignments: Int[Array, " n"],
+    labels: Int[Array, " n"],
 ) -> Float:
     """
     Compute the loss function for k-means clustering.
@@ -20,11 +20,11 @@ def compute_loss(
     **Arguments:**
         data: The data to cluster, shape (n, d).
         centroids: The centroids of the clusters, shape (K, d).
-        cluster_assignments: The cluster assignments for each data point, shape (n,).
+        labels: The cluster labels for each data point, shape (n,).
     **Returns:**
         loss: The loss function value.
     """
-    return jnp.sum(jnp.abs(data - masks * centroids[cluster_assignments]) ** 2)
+    return jnp.sum(jnp.abs(data - masks * centroids[labels]) ** 2)
 
 
 @jax.jit
@@ -38,7 +38,7 @@ def assign_clusters(
         centroids: The centroids of the clusters, shape (K, d).
         data: The data to cluster, shape (n, d).
     **Returns:**
-        cluster_assignments: The cluster assignments for each data point, shape (n,).
+        labels: The cluster labels for each data point, shape (n,).
     """
     distances = jnp.linalg.norm(
         data[:, None, :] - masks[:, None, :] * centroids[None, :, :], axis=-1
@@ -47,19 +47,19 @@ def assign_clusters(
 
 
 @partial(jax.jit, static_argnums=(3,))
-def update_centroids(
+def compute_centroids(
     data: Float[Array, "n d"],
     masks: Int[Array, "n d"],
-    cluster_assignments: Int[Array, " n"],
-    num_clusters: Int,
+    labels: Int[Array, " n"],
+    n_clusters: Int,
 ) -> Float[Array, "K d"]:
     """
-    Update the centroids of the clusters, given the data and cluster assignments.
+    Update the centroids of the clusters, given the data and cluster labels.
 
     **Arguments:**
         data: The data to cluster, shape (n, d).
-        cluster_assignments: The cluster assignments for each data point, shape (n,).
-        num_clusters: The number of clusters.
+        labels: The cluster labels for each data point, shape (n,).
+        n_clusters: The number of clusters.
     **Returns:**
         centroids: The updated centroids, shape (K, d).
     """
@@ -70,16 +70,16 @@ def update_centroids(
         num = jnp.sum(
             masked_data,
             axis=0,
-            where=jnp.where(cluster_assignments == cluster, True, False)[:, None],
+            where=jnp.where(labels == cluster, True, False)[:, None],
         )
         den = jnp.sum(
             masks,
             axis=0,
-            where=jnp.where(cluster_assignments == cluster, True, False)[:, None],
+            where=jnp.where(labels == cluster, True, False)[:, None],
         )
         return jnp.where(jnp.isclose(den, 0.0), 0.0, num / den)
 
-    return jax.vmap(_compute_centroid)(jnp.arange(num_clusters))
+    return jax.vmap(_compute_centroid)(jnp.arange(n_clusters))
 
 
 # sum_i A_i x_i / (sum_i A_i)

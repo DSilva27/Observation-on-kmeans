@@ -8,7 +8,7 @@ import numpy as np
 from jaxtyping import Array, Bool, Float, Int, PRNGKeyArray
 from tqdm import tqdm
 
-from ..kmeans._common_functions import update_centroids
+from ..kmeans._common_functions import compute_centroids
 
 
 def _compute_rho(n_data_points: Int, q_value: Float, noise_variance: Float) -> Float:
@@ -80,10 +80,10 @@ def _run_experiment_theorem_typical_part(
         + true_centroids[true_labels]
     )
 
-    assignments = jax.random.randint(
+    labels = jax.random.randint(
         key_assignment, shape=(n_data_points,), minval=0, maxval=2
     )
-    centroids = update_centroids(data, assignments, 2)
+    centroids = compute_centroids(data, labels, 2)
 
     # checking ||x_j - \mu_{\bar{z}(j)}||^2 - ||x_j - \mu_{z(j)}||^2
     # see equation (13) in the paper! <- TODO: check for final version
@@ -92,11 +92,11 @@ def _run_experiment_theorem_typical_part(
     )
 
     # makes sure the order of the distance is as in equation (13)
-    diff_distance = (-1) ** (assignments[idx_data_point]) * (
+    diff_distance = (-1) ** (labels[idx_data_point]) * (
         dist_to_centroids[1] - dist_to_centroids[0]
     )
 
-    size_cluster_point = jnp.sum(assignments == assignments[idx_data_point])  # S2
+    size_cluster_point = jnp.sum(labels == labels[idx_data_point])  # S2
     size_other_cluster = n_data_points - size_cluster_point  # S1
 
     point_swaps = jax.lax.cond(

@@ -12,7 +12,7 @@ import jax.numpy as jnp
 
 from ..kmeans._common_functions import (
     assign_clusters,
-    update_centroids,
+    compute_centroids,
 )
 from ._main_theorem import _compute_upper_bound_main_theorem
 
@@ -35,18 +35,18 @@ def _run_experiment_union_bound_cor(
         key_data2, shape=(cluster_size, dimension)
     ) * jnp.sqrt(noise_variance)
 
-    true_assignments = jnp.concatenate(
+    true_labels = jnp.concatenate(
         (jnp.zeros(cluster_size), jnp.ones(cluster_size))
     ).astype(int)
 
     data = jnp.concatenate([x_C, x_T])
-    assignments1 = jax.random.choice(
-        key_init, true_assignments, shape=(data.shape[0],), replace=False
+    labels1 = jax.random.choice(
+        key_init, true_labels, shape=(data.shape[0],), replace=False
     )
-    centroids = update_centroids(data, assignments1, 2)
-    assignments2 = assign_clusters(centroids, data)
+    centroids = compute_centroids(data, labels1, 2)
+    labels2 = assign_clusters(centroids, data)
 
-    n_points_swapped = jnp.sum(assignments1 != assignments2)
+    n_points_swapped = jnp.sum(labels1 != labels2)
     return n_points_swapped
 
 

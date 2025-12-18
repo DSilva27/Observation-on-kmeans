@@ -3,11 +3,11 @@
 
 # import jax
 
-# # jax.config.update("jax_enable_x64", True)
+# 
 # import jax.numpy as jnp
 # from jaxtyping import Array, Bool, Float, Int
 
-# from ._common_functions import assign_clusters, compute_loss, update_centroids
+# from ._common_functions import assign_clusters, compute_loss, compute_centroids
 
 
 # def compute_hartigan_distance(assignment, cluster_id, centroid, mask, averaged_mask):
@@ -26,8 +26,8 @@
 #     )
 
 
-# def assign_dp_to_cluster_hartigan(centroids, assignments, assignment_point, data_point):
-#     cluster_populations = jnp.bincount(assignments, length=centroids.shape[0])
+# def assign_dp_to_cluster_hartigan(centroids, labels, assignment_point, data_point):
+#     cluster_populations = jnp.bincount(labels, length=centroids.shape[0])
 
 #     distances = jnp.sum((data_point[None, ...] - centroids) ** 2, axis=-1)
 #     distances = jax.vmap(weight_distance, in_axes=(None, 0, 0, 0))(
@@ -36,27 +36,27 @@
 #     return jnp.argmin(distances)
 
 
-# def inner_loop_hartigan(assignments, centroids, data):
+# def inner_loop_hartigan(labels, centroids, data):
 #     def body_fun(i, val):
-#         assignments, centroids = val
+#         labels, centroids = val
 
 #         assignment = assign_dp_to_cluster_hartigan(
-#             centroids, assignments, assignments[i], data[i]
+#             centroids, labels, labels[i], data[i]
 #         )
 
-#         pred = assignments[i] != assignment
-#         assignments = assignments.at[i].set(assignment)
+#         pred = labels[i] != assignment
+#         labels = labels.at[i].set(assignment)
 
 #         centroids = jax.lax.cond(
 #             pred,
-#             lambda x: update_centroids(data, assignments, centroids.shape[0]),
+#             lambda x: compute_centroids(data, labels, centroids.shape[0]),
 #             lambda x: x,
 #             centroids,
 #         )
 
-#         return (assignments, centroids)
+#         return (labels, centroids)
 
-#     return jax.lax.fori_loop(0, data.shape[0], body_fun, (assignments, centroids))
+#     return jax.lax.fori_loop(0, data.shape[0], body_fun, (labels, centroids))
 
 
 # def _hartigan_kmeans_step(
@@ -75,14 +75,14 @@
 #     Float[Array, " max_steps"],
 #     Int,
 # ]:
-#     centroids, old_assignments, _, loss, counter = carry
+#     centroids, old_labels, _, loss, counter = carry
 
-#     assignments, centroids = inner_loop_hartigan(
-#         old_assignments.copy(), centroids, data
+#     labels, centroids = inner_loop_hartigan(
+#         old_labels.copy(), centroids, data
 #     )
-#     # loss = loss.at[counter].set(compute_loss(data, centroids, assignments))
-#     loss = compute_loss(data, centroids, assignments)
-#     return (centroids, assignments, old_assignments, loss, counter + 1)
+#     # loss = loss.at[counter].set(compute_loss(data, centroids, labels))
+#     loss = compute_loss(data, centroids, labels)
+#     return (centroids, labels, old_labels, loss, counter + 1)
 
 
 # def _hart_kmeans_stop_condition(
@@ -95,9 +95,9 @@
 #     ],
 #     max_steps: Int,
 # ) -> Bool:
-#     _, assignments, old_assignments, _, counter = carry
+#     _, labels, old_labels, _, counter = carry
 
-#     cond1 = jnp.any(assignments != old_assignments)
+#     cond1 = jnp.any(labels != old_labels)
 #     cond2 = counter <= max_steps
 
 #     return cond1 & cond2
@@ -114,13 +114,13 @@
 #     loss = 0.0  # jnp.zeros(max_iters)
 #     counter = 0
 
-#     init_assignments = assign_clusters(init_centroids, data)
-#     init_centroids = update_centroids(data, init_assignments, init_centroids.shape[0])
+#     init_labels = assign_clusters(init_centroids, data)
+#     init_centroids = compute_centroids(data, init_labels, init_centroids.shape[0])
 
 #     cond_fun = jax.jit(partial(_hart_kmeans_stop_condition, max_steps=max_iters))
 
 #     # makes sure the initial assignment does not trigger the stop condition
-#     carry = (init_centroids, init_assignments, init_assignments - 1, loss, counter)
+#     carry = (init_centroids, init_labels, init_labels - 1, loss, counter)
 
 #     @jax.jit
 #     def run_batched_hartigan_inner(carry):
@@ -130,5 +130,5 @@
 #             init_val=carry,
 #         )
 
-#     centroids, assignments, _, loss, counter = run_batched_hartigan_inner(carry)
-#     return centroids, assignments, loss, counter
+#     centroids, labels, _, loss, counter = run_batched_hartigan_inner(carry)
+#     return centroids, labels, loss, counter

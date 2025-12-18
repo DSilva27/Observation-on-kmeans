@@ -15,7 +15,7 @@ from tqdm import tqdm
 from ..kmeans import KMeans
 from ..kmeans._common_functions import (
     compute_loss,
-    update_centroids,
+    compute_centroids,
 )
 from ..svd_utils import principal_component_analysis
 
@@ -88,7 +88,7 @@ def run_single_experiment(
         prior_variance=prior_variance,
     )
 
-    true_data_averages = update_centroids(data, true_labels, n_clusters)
+    true_data_averages = compute_centroids(data, true_labels, n_clusters)
     true_loss = compute_loss(data, true_data_averages, true_labels)
 
     # PCA
@@ -165,7 +165,7 @@ def run_single_experiment(
 
     loss_pca = compute_loss(
         data,
-        update_centroids(data, lloyd_pca_results["labels"], n_clusters),
+        compute_centroids(data, lloyd_pca_results["labels"], n_clusters),
         lloyd_pca_results["labels"],
     )
 

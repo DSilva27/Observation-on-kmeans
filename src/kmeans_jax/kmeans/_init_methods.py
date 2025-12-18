@@ -3,11 +3,11 @@ from typing import Tuple
 
 import jax
 
-# jax.config.update("jax_enable_x64", True)
+
 import jax.numpy as jnp
 from jaxtyping import Array, Float, Int, PRNGKeyArray
 
-from ._common_functions import update_centroids
+from ._common_functions import compute_centroids
 
 
 @partial(jax.jit, static_argnums=(1,))
@@ -98,5 +98,5 @@ def kmeans_init_from_random_partition(
     else:
         partition = jax.random.choice(key, K, (data.shape[0],))
 
-    centroids = update_centroids(data, partition, K)
+    centroids = compute_centroids(data, partition, K)
     return centroids, partition

@@ -24,7 +24,8 @@ dependencies = [
   "scikit-learn",
   "seaborn",
   "jaxtyping",
-  "equinox"
+  "equinox",
+  "numba"
 ]
 
 [project.optional-dependencies]

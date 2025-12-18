@@ -15,7 +15,7 @@ from tqdm import tqdm
 from ..kmeans._common_functions import (
     assign_clusters,
     compute_loss,
-    update_centroids,
+    compute_centroids,
 )
 from ..kmeans._hartigan import (
     run_batched_hartigan_kmeans,
@@ -28,7 +28,7 @@ from ..kmeans._init_methods import (
     kmeans_random_init,
 )
 from ..kmeans._lloyd import (
-    run_kmeans,
+    run_lloyd_kmeans,
 )
 
 
@@ -74,7 +74,7 @@ def run_single_experiment(
     true_labels = jnp.concatenate(
         [jnp.zeros(size_cluster1, dtype=int), jnp.ones(size_cluster2, dtype=int)]
     )
-    true_data_averages = update_centroids(data, true_labels, 2)
+    true_data_averages = compute_centroids(data, true_labels, 2)
     true_loss = compute_loss(data, true_data_averages, true_labels)
 
     # PCA
@@ -100,7 +100,7 @@ def run_single_experiment(
         init_centroids, init_partition = kmeans_init_from_random_partition(
             data, 2, key_init, labels=true_labels
         )
-        init_centroids_pca = update_centroids(data_pca, init_partition, 2)
+        init_centroids_pca = compute_centroids(data_pca, init_partition, 2)
 
     else:
         raise ValueError(
@@ -109,7 +109,7 @@ def run_single_experiment(
         )
 
     # Regular k-means
-    _, labels_lloyd, loss_lloyd, _ = run_kmeans(data, init_centroids, max_iters=max_iters)
+    _, labels_lloyd, loss_lloyd, _ = run_lloyd_kmeans(data, init_centroids, max_iters=max_iters)
     nmi_kmeans = sk_metrics.normalized_mutual_info_score(true_labels, labels_lloyd)
 
     # Hartigan k-means
@@ -133,17 +133,17 @@ def run_single_experiment(
 
     # print(losses.shape)
     # PCA + k-means
-    _, labels_pca, loss_pca, _ = run_kmeans(
+    _, labels_pca, loss_pca, _ = run_lloyd_kmeans(
         data_pca, init_centroids_pca, max_iters=max_iters
     )
     nmi_kmeans_pca = sk_metrics.normalized_mutual_info_score(true_labels, labels_pca)
-    loss_pca = compute_loss(data, update_centroids(data, labels_pca, 2), labels_pca)
+    loss_pca = compute_loss(data, compute_centroids(data, labels_pca, 2), labels_pca)
 
     # Split PCA
     labels_pca_split = jnp.where(data_pca[:, 0] > 0.0, 0, 1).astype(int)
     nmi_split_pca = sk_metrics.normalized_mutual_info_score(true_labels, labels_pca_split)
     loss_pca_split = compute_loss(
-        data, update_centroids(data, labels_pca_split, 2), labels_pca_split
+        data, compute_centroids(data, labels_pca_split, 2), labels_pca_split
     )
     #: (nmi_kmeans, nmi_hartigan, nmi_bhartigan, nmi_kmeans_pca, nmi_split_pca),
     results = {

@@ -4,6 +4,7 @@ from typing_extensions import Literal
 import equinox as eqx
 import jax
 import jax.numpy as jnp
+import numpy as np
 
 from ._hartigan import (
     run_batched_hartigan_kmeans,
@@ -17,8 +18,17 @@ from ._init_methods import (
 )
 from ._lederman import run_lederman_kmeans
 from ._lloyd import (
-    run_kmeans,
+    run_lloyd_kmeans,
 )
+
+
+CLUSTERING_FNS = {
+    "Hartigan": run_hartigan_kmeans,
+    "Batched Hartigan": run_batched_hartigan_kmeans,
+    "Mini-batch Hartigan": run_minibatch_hartigan_kmeans,
+    "Lloyd": run_lloyd_kmeans,
+    "Lederman": run_lederman_kmeans,
+}
 
 
 class KMeans(eqx.Module):
@@ -26,8 +36,10 @@ class KMeans(eqx.Module):
     max_iter: int
     init_function: Callable
     clustering_function: Callable
+    algorithm: Literal[
+        "Hartigan", "Batched Hartigan", "Mini-batch Hartigan", "Lloyd", "Lederman"
+    ]
     n_init: int = 1
-    algorithm_type: Literal["deterministic", "stochastic"]
     batch_size: int | None = None
 
     def __init__(
@@ -72,35 +84,19 @@ class KMeans(eqx.Module):
         else:
             raise ValueError(f"Unknown init method: {init}")
 
-        if algorithm == "Hartigan":
-            self.clustering_function = run_hartigan_kmeans
-            self.algorithm_type = "deterministic"
-
-        elif algorithm == "Batched Hartigan":
-            self.clustering_function = run_batched_hartigan_kmeans
-            self.algorithm_type = "deterministic"
-
-        elif algorithm == "Lloyd":
-            self.clustering_function = run_kmeans
-            self.algorithm_type = "deterministic"
-
-        elif algorithm == "Lederman":
-            self.clustering_function = run_lederman_kmeans
-            self.algorithm_type = "deterministic"
-
-        elif algorithm == "Mini-batch Hartigan":
+        if algorithm == "Mini-batch Hartigan":
             if batch_size is None:
                 raise ValueError("batch_size must be provided for Mini-batch Hartigan")
-            self.clustering_function = (
-                lambda data, init_centroids, key, max_iter: run_minibatch_hartigan_kmeans(
-                    data, init_centroids, key, batch_size, max_iter
-                )
-            )
-            self.algorithm_type = "stochastic"
-            self.batch_size = batch_size
+
+        elif algorithm in ["Hartigan", "Batched Hartigan", "Lloyd", "Lederman"]:
+            pass
 
         else:
             raise ValueError(f"Unknown clustering method: {algorithm}")
+
+        self.clustering_function = CLUSTERING_FNS[algorithm]
+        self.algorithm = algorithm
+        self.batch_size = batch_size
 
     def fit(self, key, data, *, batch_size=None, output="best") -> dict:
         """
@@ -133,9 +129,9 @@ class KMeans(eqx.Module):
         """
         keys = jax.random.split(key, self.n_init)
 
-        if self.algorithm_type == "deterministic":
+        if self.algorithm == "Mini-batch Hartigan":
             results = jax.lax.map(
-                lambda x: _run_deterministic_kmeans(
+                lambda x: _run_mbhartigan_kmeans(
                     x,
                     data,
                     self.init_function,
@@ -146,9 +142,10 @@ class KMeans(eqx.Module):
                 keys,
                 batch_size=batch_size,
             )
-        elif self.algorithm_type == "stochastic":
+            results["centroids"].block_until_ready()
+        elif self.algorithm in ["Lloyd", "Batched Hartigan", "Lederman"]:
             results = jax.lax.map(
-                lambda x: _run_stochastic_kmeans(
+                lambda x: _run_fullbatch_kmeans(
                     x,
                     data,
                     self.init_function,
@@ -159,7 +156,18 @@ class KMeans(eqx.Module):
                 keys,
                 batch_size=batch_size,
             )
-        results["centroids"].block_until_ready()
+            results["centroids"].block_until_ready()
+
+        else: # self.algorithm == "Hartigan"
+            results = _run_hartigan_kmeans(
+                keys,
+                data,
+                self.init_function,
+                self.clustering_function,
+                self.n_clusters,
+                self.max_iter,
+            )
+
 
         if output == "best":
             best_idx = jnp.argmin(results["loss"])
@@ -177,7 +185,31 @@ class KMeans(eqx.Module):
         return results
 
 
-def _run_deterministic_kmeans(key, data, init_fn, clustering_fn, n_clusters, max_iter):
+def _run_hartigan_kmeans(keys, data, init_fn, clustering_fn, n_clusters, max_iter):
+    results = {
+        "centroids": np.empty((len(keys), n_clusters, data.shape[1])),
+        "labels": np.empty((len(keys), data.shape[0])),
+        "loss": np.empty((len(keys),)),
+        "n_iter": np.empty((len(keys),)),
+    }
+    data = np.asanyarray(data)
+    for i in range(len(keys)):
+        init_centroids = np.asanyarray(init_fn(data, n_clusters, keys[i])[0])
+        centroids, labels, losses, counter = clustering_fn(data, init_centroids, max_iter)
+        results["centroids"][i] = centroids
+        results["labels"][i] = labels
+        results["loss"][i] = losses
+        results["n_iter"][i] = counter
+
+    results["centroids"] = jnp.array(results["centroids"])
+    results["labels"] = jnp.array(results["labels"])
+    results["loss"] = jnp.array(results["loss"])
+    results["n_iter"] = jnp.array(results["n_iter"])
+
+    return results
+
+
+def _run_fullbatch_kmeans(key, data, init_fn, clustering_fn, n_clusters, max_iter):
     init_centroids, _ = init_fn(data, n_clusters, key)
     centroids, labels, losses, counter = clustering_fn(data, init_centroids, max_iter)
 
@@ -189,7 +221,7 @@ def _run_deterministic_kmeans(key, data, init_fn, clustering_fn, n_clusters, max
     }
 
 
-def _run_stochastic_kmeans(key, data, init_fn, clustering_fn, n_clusters, max_iter):
+def _run_mbhartigan_kmeans(key, data, init_fn, clustering_fn, n_clusters, max_iter):
     key_init, key_run = jax.random.split(key)
 
     init_centroids, _ = init_fn(data, n_clusters, key_init)

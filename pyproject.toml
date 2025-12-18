@@ -25,7 +25,8 @@ dependencies = [
   "seaborn",
   "jaxtyping",
   "equinox",
-  "numba"
+  "numba",
+  "cvxpy"
 ]
 
 [project.optional-dependencies]

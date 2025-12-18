@@ -1,7 +1,7 @@
 import numpy as np
-
-from kmeans_jax.kmeans import compute_centroids, compute_loss, assign_clusters
 from sklearn.cluster import SpectralClustering
+
+from kmeans_jax.kmeans import compute_centroids, compute_loss
 
 
 def run_spectral_clustering(data, n_clusters, **kwargs):

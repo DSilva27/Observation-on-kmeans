@@ -2,15 +2,13 @@ from functools import partial
 from typing import Tuple
 
 import jax
-
-
 import jax.numpy as jnp
 from jaxtyping import Array, Bool, Float, Int
 
 from ._common_functions import (
     assign_clusters,
-    compute_loss,
     compute_centroids,
+    compute_loss,
 )
 
 
@@ -62,12 +60,7 @@ def run_lloyd_kmeans(
     data: Float[Array, "n d"],
     init_centroids: Float[Array, "K d"],
     max_iters: Int = 1000,
-) -> Tuple[
-    Float[Array, "K d"], 
-    Int[Array, " n"],
-    Float,
-    Int
-]:
+) -> Tuple[Float[Array, "K d"], Int[Array, " n"], Float, Int]:
     """
     Run Lloyd's k-means clustering algorithm from a given initial set of cluster centers.
 

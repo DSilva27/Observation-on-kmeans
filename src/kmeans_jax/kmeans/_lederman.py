@@ -5,8 +5,7 @@ import jax
 import jax.numpy as jnp
 from jaxtyping import Array, Float, Int
 
-from ._common_functions import assign_clusters, compute_loss, compute_centroids
-
+from ._common_functions import assign_clusters, compute_centroids, compute_loss
 
 
 def weight_distance(assignment, cluster_id, cluster_weight, distance):

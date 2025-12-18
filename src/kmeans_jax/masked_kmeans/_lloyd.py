@@ -2,15 +2,13 @@ from functools import partial
 from typing import Tuple
 
 import jax
-
-
 import jax.numpy as jnp
 from jaxtyping import Array, Bool, Float, Int
 
 from ._common_functions import (
     assign_clusters,
-    compute_loss,
     compute_centroids,
+    compute_loss,
 )
 
 
@@ -86,9 +84,7 @@ def run_lloyd_mask_operators(
     counter = 0
     # dummy init
     init_labels = assign_clusters(init_centroids, data, masks)
-    init_centroids = compute_centroids(
-        data, masks, init_labels, init_centroids.shape[0]
-    )
+    init_centroids = compute_centroids(data, masks, init_labels, init_centroids.shape[0])
 
     cond_fun = jax.jit(partial(_kmeans_stop_condition, max_steps=max_iters))
 

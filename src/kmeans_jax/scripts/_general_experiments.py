@@ -14,8 +14,8 @@ from tqdm import tqdm
 
 from ..kmeans import KMeans
 from ..kmeans._common_functions import (
-    compute_loss,
     compute_centroids,
+    compute_loss,
 )
 from ..svd_utils import principal_component_analysis
 

@@ -1,8 +1,10 @@
+import warnings
+
 import cvxpy as cp
 import numpy as np
 
-from kmeans_jax.kmeans import compute_centroids, compute_loss, assign_clusters
-import warnings
+from kmeans_jax.kmeans import assign_clusters, compute_centroids, compute_loss
+
 
 warnings.filterwarnings("ignore")
 

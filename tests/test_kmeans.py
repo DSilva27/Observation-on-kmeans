@@ -1,10 +1,12 @@
 import jax
+
+
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from kmeans_jax.kmeans import kmeans_random_init, run_lloyd_kmeans, run_hartigan_kmeans
+from kmeans_jax.kmeans import kmeans_random_init, run_hartigan_kmeans, run_lloyd_kmeans
 
 
 def run_lloyd_kmeans_numpy(data, init_centroids, max_iters=1000):

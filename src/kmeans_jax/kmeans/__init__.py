@@ -1,7 +1,7 @@
 from ._common_functions import (
     assign_clusters as assign_clusters,
-    compute_loss as compute_loss,
     compute_centroids as compute_centroids,
+    compute_loss as compute_loss,
 )
 from ._hartigan import (
     run_batched_hartigan_kmeans as run_batched_hartigan_kmeans,

@@ -1,14 +1,13 @@
 from functools import partial
 from typing import Tuple
-import numpy as np
-from numba import jit
+
 import jax
-
-
 import jax.numpy as jnp
-from jaxtyping import Array, Bool, Float, Int, PRNGKeyArray
+import numpy as np
+from jaxtyping import Array, Float, Int, PRNGKeyArray
+from numba import jit
 
-from ._common_functions import assign_clusters, compute_loss, compute_centroids
+from ._common_functions import assign_clusters, compute_centroids, compute_loss
 
 
 @jit
@@ -100,13 +99,14 @@ def run_hartigan_kmeans(
 
     **Arguments**:
         data: A numpy-like array of shape (n, d) containing the data points.
-        init_centroids: A numpy-like array of shape (K, d) containing the initial centroids.
+        init_centroids: A numpy-like array of shape (K, d)
+                        containing the initial centroids.
         max_iters: maximum number of iterations.
 
     **Returns**:
         A tuple containing:
-            - centroids: A numpy-like array of shape (K, d) containing the final centroids.
-            - labels: A numpy-like array of shape (n,) containing the final cluster labels.
+            - centroids: A numpy-like array of shape (K, d) containing the final centroids
+            - labels: A numpy-like array of shape (n,) containing the final cluster labels
             - loss: A float representing the final k-means loss.
             - n_iters: An integer representing the number of iterations performed.
     """
@@ -136,9 +136,7 @@ def weight_distances(labels, cluster_ids, cluster_populations, distances):
     )(labels, cluster_ids, cluster_populations, distances)
 
 
-def assign_dp_to_cluster_batched_hartigan(
-    centroids, labels, cluster_populations, data
-):
+def assign_dp_to_cluster_batched_hartigan(centroids, labels, cluster_populations, data):
     distances = jnp.sum((data[:, None, :] - centroids[None, :, :]) ** 2, axis=-1)
     distances = weight_distances(
         labels, jnp.arange(centroids.shape[0]), cluster_populations, distances
@@ -192,12 +190,7 @@ def run_batched_hartigan_kmeans(
     data: Float[Array, "n d"],
     init_centroids: Float[Array, "K d"],
     max_iters: Int = 1000,
-) -> Tuple[
-    Float[Array, "K d"],
-    Int[Array, " n"],
-    Float,
-    Int
-]:
+) -> Tuple[Float[Array, "K d"], Int[Array, " n"], Float, Int]:
     loss = 0.0  # jnp.zeros(max_iters)
     counter = 0
 
@@ -273,12 +266,7 @@ def run_minibatch_hartigan_kmeans(
     key: PRNGKeyArray,
     batch_size: Int,
     max_iters: Int = 1000,
-) -> Tuple[
-    Float[Array, "K d"],
-    Int[Array, " n"],
-    Float,
-    Int
-]:
+) -> Tuple[Float[Array, "K d"], Int[Array, " n"], Float, Int]:
     loss = 0.0
     counter = 0
 

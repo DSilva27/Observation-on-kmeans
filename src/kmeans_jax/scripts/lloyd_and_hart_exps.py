@@ -14,8 +14,8 @@ from tqdm import tqdm
 
 from ..kmeans._common_functions import (
     assign_clusters,
-    compute_loss,
     compute_centroids,
+    compute_loss,
 )
 from ..kmeans._hartigan import (
     run_batched_hartigan_kmeans,
@@ -109,7 +109,9 @@ def run_single_experiment(
         )
 
     # Regular k-means
-    _, labels_lloyd, loss_lloyd, _ = run_lloyd_kmeans(data, init_centroids, max_iters=max_iters)
+    _, labels_lloyd, loss_lloyd, _ = run_lloyd_kmeans(
+        data, init_centroids, max_iters=max_iters
+    )
     nmi_kmeans = sk_metrics.normalized_mutual_info_score(true_labels, labels_lloyd)
 
     # Hartigan k-means

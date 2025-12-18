@@ -158,7 +158,7 @@ class KMeans(eqx.Module):
             )
             results["centroids"].block_until_ready()
 
-        else: # self.algorithm == "Hartigan"
+        else:  # self.algorithm == "Hartigan"
             results = _run_hartigan_kmeans(
                 keys,
                 data,
@@ -167,7 +167,6 @@ class KMeans(eqx.Module):
                 self.n_clusters,
                 self.max_iter,
             )
-
 
         if output == "best":
             best_idx = jnp.argmin(results["loss"])

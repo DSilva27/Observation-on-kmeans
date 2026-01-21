@@ -24,7 +24,7 @@ def _assign_labels_lloyd_np(centroids, data):
 @jit
 def _compute_centroids_np(data, labels, centroids):
     for i in range(centroids.shape[0]):
-        centroids[i] = np.sum(data[labels == i], axis=0) / np.sum(labels == i)
+        centroids[i] = np.sum(data[labels == i], axis=0) / (np.sum(labels == i) + 1e-8)
     return centroids
 
 

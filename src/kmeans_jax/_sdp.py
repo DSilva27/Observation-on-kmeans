@@ -61,7 +61,7 @@ def run_sdp_clustering(data, n_clusters, max_iters=500):
         X >> 0,
         cp.trace(X) == n_clusters,
         X >= 0,
-        X @ np.ones((n, n)) == np.ones((n, n)),
+        X @ np.ones((n,)) == np.ones((n,)),
     ]
 
     prob = cp.Problem(cp.Minimize(cp.trace(dist_matrix @ X)), constraints)

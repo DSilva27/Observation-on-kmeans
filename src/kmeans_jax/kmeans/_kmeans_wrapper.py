@@ -137,6 +137,7 @@ class KMeans(eqx.Module):
                     self.init_function,
                     self.clustering_function,
                     self.n_clusters,
+                    self.batch_size,
                     self.max_iter,
                 ),
                 keys,
@@ -220,12 +221,14 @@ def _run_fullbatch_kmeans(key, data, init_fn, clustering_fn, n_clusters, max_ite
     }
 
 
-def _run_mbhartigan_kmeans(key, data, init_fn, clustering_fn, n_clusters, max_iter):
+def _run_mbhartigan_kmeans(
+    key, data, init_fn, clustering_fn, n_clusters, batch_size, max_iter
+):
     key_init, key_run = jax.random.split(key)
 
     init_centroids, _ = init_fn(data, n_clusters, key_init)
     centroids, labels, losses, counter = clustering_fn(
-        data, init_centroids, key_run, max_iter
+        data, init_centroids, key_run, batch_size, max_iter
     )
 
     return {

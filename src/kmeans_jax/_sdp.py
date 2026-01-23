@@ -45,10 +45,13 @@ def sdp_rounding_vectorized(denoised, n_clusters):
     return labels
 
 
-def run_sdp_clustering(data, n_clusters, max_iters=500):
+def run_sdp_clustering(data, n_clusters, max_iters=500, normalizes_data=True):
     n = data.shape[0]
     data = np.asanyarray(data).copy()
-    data_normalized = data / np.linalg.norm(data, axis=1, keepdims=True)
+    if normalizes_data:
+        data_normalized = data / np.linalg.norm(data, axis=1, keepdims=True)
+    else:
+        data_normalized = data.copy()
 
     dist_matrix = np.sum(
         (data_normalized[:, None, :] - data_normalized[None, :, :]) ** 2, axis=-1

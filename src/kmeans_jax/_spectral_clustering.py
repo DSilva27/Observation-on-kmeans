@@ -4,7 +4,7 @@ from sklearn.cluster import SpectralClustering
 from kmeans_jax.kmeans import compute_centroids, compute_loss
 
 
-def run_spectral_clustering(data, n_clusters, **kwargs):
+def run_spectral_clustering(data, n_clusters, normalizes_data=True, **kwargs):
     """
     Runs spectral clustering using sklearn's implementation.
 
@@ -25,7 +25,10 @@ def run_spectral_clustering(data, n_clusters, **kwargs):
         num_iters: None
             SpectralClustering does not provide iteration count.
     """
-    data_norm = data / np.linalg.norm(data, axis=1, keepdims=True)
+    if normalizes_data:
+        data_norm = data.copy() / np.linalg.norm(data, axis=1, keepdims=True)
+    else:
+        data_norm = data.copy()
     clustering = SpectralClustering(n_clusters=n_clusters, **kwargs).fit(data_norm)
     labels = clustering.labels_
     centroids = compute_centroids(data, labels, n_clusters)

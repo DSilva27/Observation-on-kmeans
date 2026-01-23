@@ -24,7 +24,12 @@ def _assign_labels_lloyd_np(centroids, data):
 @jit
 def _compute_centroids_np(data, labels, centroids):
     for i in range(centroids.shape[0]):
-        centroids[i] = np.sum(data[labels == i], axis=0) / (np.sum(labels == i) + 1e-8)
+        idx_mask = labels == i
+        n_elements = np.sum(idx_mask)
+        if n_elements > 0:
+            centroids[i] = np.sum(data[idx_mask], axis=0) / n_elements
+        else:
+            centroids[i] = np.zeros_like(centroids[i])
     return centroids
 
 

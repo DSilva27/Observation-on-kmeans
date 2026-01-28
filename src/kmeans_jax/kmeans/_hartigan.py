@@ -126,7 +126,7 @@ def weight_distance(assignment, cluster_id, cluster_weight, distance):
         assignment == cluster_id,
         lambda x: jax.lax.cond(
             cluster_weight <= 1,
-            lambda x: 0.0,
+            lambda x: -1.0,  # always assign
             lambda x: x * cluster_weight / (cluster_weight - 1),
             distance,
         ),

@@ -40,7 +40,7 @@ def _assign_label_hartigan_np(centroids, cluster_populations, data_point, label_
     for i in range(centroids.shape[0]):
         if label_point == i:
             if cluster_populations[i] <= 1:
-                distances[i] = 0.0
+                distances[i] = -1.0  # always assign
             else:
                 scale_factor = cluster_populations[i] / (cluster_populations[i] - 1)
                 distances[i] *= scale_factor
@@ -70,14 +70,14 @@ def _run_hartigan_numpy(data, init_centroids, max_iters):
             )
             if new_label != labels[j]:
                 # centroids = compute_centroids(data, labels, centroids)
-                n_clust = cluster_populations[labels[j]]
-                centroids[labels[j]] = (centroids[labels[j]] * n_clust - data[j]) / (
-                    n_clust - 1.0
+                n_clust1 = cluster_populations[labels[j]]
+                centroids[labels[j]] = (centroids[labels[j]] * n_clust1 - data[j]) / (
+                    n_clust1 - 1.0
                 )
 
-                n_clust = cluster_populations[new_label]
-                centroids[new_label] = (centroids[new_label] * n_clust + data[j]) / (
-                    n_clust + 1.0
+                n_clust2 = cluster_populations[new_label]
+                centroids[new_label] = (centroids[new_label] * n_clust2 + data[j]) / (
+                    n_clust2 + 1.0
                 )
 
                 cluster_populations[labels[j]] -= 1
